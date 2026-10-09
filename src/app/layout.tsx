@@ -9,7 +9,9 @@ export const metadata: Metadata = {
     icon: [
       { url: '/logo.png', type: 'image/png' },
       { url: '/icon.png', type: 'image/png' },
+      { url: '/favicon.ico', type: 'image/x-icon' },
     ],
+    shortcut: ['/logo.png'],
     apple: [{ url: '/logo.png' }],
   },
   manifest: '/manifest.json',
@@ -32,7 +34,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="dark h-full antialiased bg-[#0c0e12]">
       <head>
-        <link rel="icon" href="/logo.png" />
+        <link rel="icon" type="image/png" href="/logo.png" />
+        <link rel="shortcut icon" type="image/png" href="/logo.png" />
         <link rel="apple-touch-icon" href="/logo.png" />
       </head>
       <body className="min-h-full flex flex-col bg-[#0c0e12] text-[#e2e8f0] selection:bg-[#cfff04] selection:text-black">
