@@ -1,0 +1,21 @@
+{
+  "name": "StonkStatistics: Your statistics for the Stonkbroker ecosystem",
+  "short_name": "StonkStatistics",
+  "description": "Real-time statistics, Clock In pot accumulation, and revenue projections for the StonkBrokers ecosystem on Robinhood Chain.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0e12",
+  "theme_color": "#0c0e12",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
