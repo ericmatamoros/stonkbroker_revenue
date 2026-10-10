@@ -57,8 +57,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'distributions',
-      label: 'Distributions Ledger',
-      subtitle: 'Daily Delivery History',
+      label: 'Daily Distributions',
+      subtitle: 'Protocol Fees, Tiers & Growth',
       icon: Activity,
     },
     {
@@ -205,7 +205,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   $S
                 </div>
                 <div>
-                  <div className="text-[11px] font-semibold text-white leading-tight">STONKBROKER</div>
+                  <div className="text-[11px] font-semibold text-white leading-tight">$STONKBROKER</div>
                   <div className="text-[9px] text-gray-400">Official Token</div>
                 </div>
               </div>
@@ -230,7 +230,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div className="text-right">
                 <div className="text-xs font-mono font-bold text-white leading-tight">
-                  ${ethPrice.toLocaleString()}
+                  ${Math.round(ethPrice).toLocaleString('en-US')}
                 </div>
                 <div className="text-[9px] text-gray-400 font-mono">Chain Native</div>
               </div>

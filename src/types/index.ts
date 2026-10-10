@@ -55,6 +55,77 @@ export interface DailyDistributionSummary {
   recipientsCount: number;
 }
 
+export interface TierStatItem {
+  tierId: number;
+  tierName: string;
+  multiplier: string;
+  activatedCount: number;
+  deactivatedCount: number;
+  totalMinted: number;
+  activeWeight: number;
+  sharePct: number;
+}
+
+export interface TierActivationBreakdown {
+  interns: {
+    totalActivated: number;
+    totalDeactivated: number;
+    totalWeight: number;
+    tiers: TierStatItem[];
+  };
+  brokers: {
+    totalActivated: number;
+    totalDeactivated: number;
+    totalWeight: number;
+    tiers: TierStatItem[];
+  };
+}
+
+export interface TierEvolutionDay {
+  date: string;
+  displayDate: string;
+  brokerFeesUsd: number;
+  internFeesUsd: number;
+  totalFeesUsd: number;
+  brokerFeesEth: number;
+  internFeesEth: number;
+  totalFeesEth: number;
+  freshmanActive: number;
+  sophomoreActive: number;
+  juniorActive: number;
+  seniorActive: number;
+  alumnusActive: number;
+  totalInternsActive: number;
+  internsActivated: number;
+  internsDeactivated: number;
+  floorTraderActive: number;
+  analystActive: number;
+  portfolioManagerActive: number;
+  managingDirectorActive: number;
+  partnerActive: number;
+  totalBrokersActive: number;
+  brokersActivated: number;
+  brokersDeactivated: number;
+  roundsCount: number;
+}
+
+export interface WeekOverWeekItem {
+  metric: string;
+  currentWeek: string | number;
+  previousWeek: string | number;
+  diff: string | number;
+  changePct: number;
+  isPositive: boolean;
+}
+
+export interface HistoricalDistributionsResult {
+  rounds: DistributionRound[];
+  dailies: DailyDistributionSummary[];
+  tierStats: TierActivationBreakdown;
+  evolution: TierEvolutionDay[];
+  wowGrowth: WeekOverWeekItem[];
+}
+
 export interface TokenDeliveryTotal {
   symbol: string;
   stockAddress: string;

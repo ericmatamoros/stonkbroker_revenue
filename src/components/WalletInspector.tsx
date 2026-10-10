@@ -229,7 +229,7 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                 ${result.totalTbaPortfolioUsd.toFixed(2)}
               </div>
               <div className="text-xs text-gray-400 mt-1">
-                Holding stock tokens & $STONK
+                Holding stock tokens & $STONKBROKER
               </div>
             </div>
           </div>
@@ -259,7 +259,7 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                     </span>
                   </div>
                   <div className="text-xs text-gray-400 mt-0.5">
-                    Live contract pending rewards: 25.42 $STONK per Freshman (1.00x), 50.83 $STONK per Senior (2.00x) + active parent slices.
+                    Live contract pending rewards: 25.42 $STONKBROKER per Freshman (1.00x), 50.83 $STONKBROKER per Senior (2.00x) + active parent slices.
                   </div>
                 </div>
               </div>
@@ -291,11 +291,11 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                 {/* Engine Source Breakdown Pills */}
                 <div className="mt-2.5 flex items-center gap-2 flex-wrap">
                   <span className="text-[11px] bg-[#a855f7]/15 text-[#c084fc] border border-[#a855f7]/30 px-2 py-0.5 rounded font-medium">
-                    Intern Pot Base: ${(result.projections.internBaseDailyUsd || 0).toFixed(2)}/day (406.7 $STONK)
+                    Intern Pot Base: ${(result.projections.internBaseDailyUsd || 0).toFixed(2)}/day (406.7 $STONKBROKER)
                   </span>
                   {(result.projections.parentSliceDailyUsd || 0) > 0 && (
                     <span className="text-[11px] bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/30 px-2 py-0.5 rounded font-medium">
-                      Active Parent Slices: +${(result.projections.parentSliceDailyUsd || 0).toFixed(2)}/day (~{((result.projections.parentSliceDailyUsd || 0) / (result.stonkPriceUsd || 0.004955)).toFixed(0)} $STONK)
+                      Active Parent Slices: +${(result.projections.parentSliceDailyUsd || 0).toFixed(2)}/day (~{((result.projections.parentSliceDailyUsd || 0) / (result.stonkPriceUsd || 0.004955)).toFixed(0)} $STONKBROKER)
                     </span>
                   )}
                   {(result.projections.brokerDailyEth || 0) > 0 && (
@@ -318,7 +318,7 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                         : 'text-gray-400 hover:text-white'
                     }`}
                   >
-                    100% $STONK Mode
+                    100% $STONKBROKER Mode
                   </button>
                   <button
                     onClick={() => setPayoutMode('basket')}
@@ -376,7 +376,7 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                   ${(result.projections.weeklyUsd * volumeMultiplier).toFixed(2)}
                 </div>
                 <div className="text-xs text-[#cfff04] mono mt-1 font-bold">
-                  ≈ {((result.projections.weeklyStonk || 0) * volumeMultiplier).toLocaleString(undefined, { maximumFractionDigits: 0 })} $STONK / week
+                  ≈ {((result.projections.weeklyStonk || 0) * volumeMultiplier).toLocaleString(undefined, { maximumFractionDigits: 0 })} $STONKBROKER / week
                 </div>
                 <div className="text-[11px] text-gray-400 mono mt-0.5">
                   {(result.projections.weeklyEth * volumeMultiplier).toFixed(4)} ETH / week
@@ -389,7 +389,7 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                   ${(result.projections.monthlyUsd * volumeMultiplier).toFixed(2)}
                 </div>
                 <div className="text-xs text-[#cfff04] mono mt-1 font-bold">
-                  ≈ {((result.projections.monthlyStonk || 0) * volumeMultiplier).toLocaleString(undefined, { maximumFractionDigits: 0 })} $STONK / mo
+                  ≈ {((result.projections.monthlyStonk || 0) * volumeMultiplier).toLocaleString(undefined, { maximumFractionDigits: 0 })} $STONKBROKER / mo
                 </div>
                 <div className="text-[11px] text-gray-400 mono mt-0.5">
                   {(result.projections.monthlyEth * volumeMultiplier).toFixed(3)} ETH / month
@@ -402,7 +402,7 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                   ${(result.projections.annualUsd * volumeMultiplier).toFixed(2)}
                 </div>
                 <div className="text-xs text-[#cfff04] mono mt-1 font-bold">
-                  ≈ {((result.projections.annualStonk || 0) * volumeMultiplier).toLocaleString(undefined, { maximumFractionDigits: 0 })} $STONK / yr
+                  ≈ {((result.projections.annualStonk || 0) * volumeMultiplier).toLocaleString(undefined, { maximumFractionDigits: 0 })} $STONKBROKER / yr
                 </div>
                 <div className="text-[11px] text-gray-400 mono mt-0.5">
                   {(result.projections.annualEth * volumeMultiplier).toFixed(2)} ETH / year

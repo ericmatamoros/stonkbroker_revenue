@@ -100,12 +100,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Live Ticker Pills on Desktop */}
             <div className="hidden xl:flex items-center gap-2 text-xs">
               <div className="px-2.5 py-1.5 rounded-lg bg-[#12161f] border border-[#1e2432] flex items-center gap-1.5 font-mono">
-                <span className="text-gray-400">STONK:</span>
+                <span className="text-gray-400">$STONKBROKER:</span>
                 <span className="text-[#cfff04] font-semibold">${stonkPrice.toFixed(5)}</span>
               </div>
               <div className="px-2.5 py-1.5 rounded-lg bg-[#12161f] border border-[#1e2432] flex items-center gap-1.5 font-mono">
                 <span className="text-gray-400">ETH:</span>
-                <span className="text-white font-semibold">${ethPrice.toLocaleString()}</span>
+                <span className="text-white font-semibold">${Math.round(ethPrice).toLocaleString('en-US')}</span>
               </div>
             </div>
 

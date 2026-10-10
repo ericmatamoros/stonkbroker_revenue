@@ -7,6 +7,9 @@ import {
   DistributionRound,
   TokenDeliveryTotal,
   WalletInspectionResult,
+  TierActivationBreakdown,
+  TierEvolutionDay,
+  WeekOverWeekItem,
 } from '@/types';
 import { Sidebar } from '@/components/Sidebar';
 import { Navbar } from '@/components/Navbar';
@@ -24,6 +27,9 @@ export default function DashboardPage() {
   const [potData, setPotData] = useState<ClockInPotData | null>(null);
   const [rounds, setRounds] = useState<DistributionRound[]>([]);
   const [dailies, setDailies] = useState<DailyDistributionSummary[]>([]);
+  const [tierStats, setTierStats] = useState<TierActivationBreakdown | undefined>(undefined);
+  const [evolution, setEvolution] = useState<TierEvolutionDay[] | undefined>(undefined);
+  const [wowGrowth, setWowGrowth] = useState<WeekOverWeekItem[] | undefined>(undefined);
   const [tokens, setTokens] = useState<TokenDeliveryTotal[]>([]);
   const [targetWallet, setTargetWallet] = useState<string>('0x6e659392a047b21e0b91bd5da1e4fda9ac8f7e12');
 
@@ -60,6 +66,9 @@ export default function DashboardPage() {
       if (roundsRes.ok && roundsRes.data) {
         setRounds(roundsRes.data.rounds || []);
         setDailies(roundsRes.data.dailies || []);
+        if (roundsRes.data.tierStats) setTierStats(roundsRes.data.tierStats);
+        if (roundsRes.data.evolution) setEvolution(roundsRes.data.evolution);
+        if (roundsRes.data.wowGrowth) setWowGrowth(roundsRes.data.wowGrowth);
       }
 
       if (tokensRes.ok && tokensRes.data) {
@@ -162,6 +171,9 @@ export default function DashboardPage() {
               dailies={dailies}
               tokens={tokens}
               loading={loadingDistributions}
+              tierStats={tierStats}
+              evolution={evolution}
+              wowGrowth={wowGrowth}
             />
           )}
 
