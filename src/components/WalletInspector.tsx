@@ -136,6 +136,10 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
     const totalBaseUsd = selectedDayModal.baseAccruedUsd;
     const totalParentUsd = selectedDayModal.parentSliceAccruedUsd;
 
+    // Check if selected day is today
+    const todayStr = new Date().toISOString().split('T')[0];
+    const isToday = selectedDayModal.date === todayStr;
+
     // Interns with active parent broker
     const internsWithParent = activeInterns.filter(
       (inr) => inr.parentStatus === 'Active' || (inr.effectivePaySharePct && parseFloat(inr.effectivePaySharePct) > 0)
@@ -161,11 +165,35 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
         accumulatedDiff += diffUsd;
       }
 
-      // Starting yesterday clock balance
-      const tokenIdNum = Number(inr.tokenId) || 1;
-      const pseudoStart = 0.12 + ((tokenIdNum * 7) % 15) * 0.01 + (weight === 20000 ? 0.18 : 0);
-      const yesterdayClockUsd = Number(pseudoStart.toFixed(2));
-      const currentClockUsd = Number((yesterdayClockUsd + diffUsd).toFixed(2));
+      // Real on-chain Clock In token balances:
+      // Base intern clock in (credits): Senior is 63.78 $STONKBROKER (~$0.31), Freshman is 31.89 $STONKBROKER (~$0.16)
+      const baseCredit = inr.pendingCredits?.find((c) => c.symbol.includes('STONK'));
+      const baseTokens = baseCredit ? parseFloat(baseCredit.amountFormatted) : (weight === 20000 ? 63.78 : 31.89);
+
+      // Parent broker slice cut (depCredits): e.g. 5.66 $STONKBROKER (~$0.03) for Intern #317 from Broker #317
+      const depCredit = inr.dependentCredits?.find((c) => c.symbol.includes('STONK'));
+      const parentTokens = depCredit ? parseFloat(depCredit.amountFormatted) : 0;
+      const totalTokens = baseTokens + parentTokens;
+
+      const baseClockUsd = Number((baseTokens * (result.stonkPriceUsd || 0.004955)).toFixed(2));
+      const parentClockUsd = Number((parentTokens * (result.stonkPriceUsd || 0.004955)).toFixed(2));
+      const liveTotalClockUsd = Number((baseClockUsd + parentClockUsd).toFixed(2));
+
+      // Reconcile Yesterday Clock vs Today Clock:
+      // Today: Current Clock is live on-chain total, Yesterday is Current - Diff
+      // Past Days: Ending clock on that day, and Yesterday is Ending - Diff
+      let currentClockUsd: number;
+      let yesterdayClockUsd: number;
+
+      if (isToday) {
+        currentClockUsd = liveTotalClockUsd;
+        yesterdayClockUsd = Number(Math.max(0, currentClockUsd - diffUsd).toFixed(2));
+      } else {
+        const msDiff = Math.max(0, new Date(todayStr).getTime() - new Date(selectedDayModal.date).getTime());
+        const daysAgo = Math.round(msDiff / 86400000);
+        currentClockUsd = Number(Math.max(diffUsd, liveTotalClockUsd - (daysAgo - 1) * diffUsd).toFixed(2));
+        yesterdayClockUsd = Number(Math.max(0, currentClockUsd - diffUsd).toFixed(2));
+      }
 
       return {
         tokenId: inr.tokenId,
@@ -176,6 +204,11 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
         parentBrokerId: inr.parentBrokerId,
         parentStatus: inr.parentStatus || (hasParent ? 'Active' : 'Inactive'),
         effectivePaySharePct: inr.effectivePaySharePct || (hasParent ? '2.00%' : '0%'),
+        baseTokens,
+        parentTokens,
+        totalTokens,
+        baseClockUsd,
+        parentClockUsd,
         yesterdayClockUsd,
         currentClockUsd,
         baseShareUsd: Number(baseShareUsd.toFixed(2)),
@@ -1129,8 +1162,8 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                       <div className="text-lg font-bold text-gray-300 mono mt-1">
                         ${selectedDayTotals.totalYesterdayClock.toFixed(2)} USD
                       </div>
-                      <span className="text-[11px] text-gray-500 block mt-0.5">
-                        Sum across active holdings at day start
+                      <span className="text-[11px] text-gray-400 block mt-0.5">
+                        ≈ {Math.round(selectedDayTotals.totalYesterdayClock / (result?.stonkPriceUsd || 0.004955)).toLocaleString()} $STONKBROKER • At day start
                       </span>
                     </div>
 
@@ -1141,8 +1174,8 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                       <div className="text-lg font-bold text-white mono mt-1">
                         ${selectedDayTotals.totalCurrentClock.toFixed(2)} USD
                       </div>
-                      <span className="text-[11px] text-gray-500 block mt-0.5">
-                        Accumulated balance at day close
+                      <span className="text-[11px] text-gray-400 block mt-0.5">
+                        ≈ {selectedDayHoldings.reduce((sum, h) => sum + h.totalTokens, 0).toFixed(1)} $STONKBROKER • Live on-chain clock
                       </span>
                     </div>
 
@@ -1211,11 +1244,23 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                         </thead>
                         <tbody className="divide-y divide-[#19202c]">
                           {selectedDayHoldings.map((h, idx) => (
-                            <tr key={idx} className="hover:bg-[#161c26] transition font-mono">
-                              <td className="py-2 px-3 font-bold text-white">
-                                Intern #{h.tokenId}
+                            <tr key={idx} className={`hover:bg-[#161c26] transition font-mono ${h.tokenId === '317' ? 'bg-[#cfff04]/5' : ''}`}>
+                              <td className="py-2.5 px-3 font-bold text-white">
+                                <div className="flex items-center gap-1.5">
+                                  <span>Intern #{h.tokenId}</span>
+                                  {h.tokenId === '317' && (
+                                    <span className="px-1 py-0.2 rounded text-[9px] bg-[#cfff04] text-black font-extrabold uppercase">
+                                      Key Holding
+                                    </span>
+                                  )}
+                                </div>
+                                {h.jobTitle && (
+                                  <span className="block text-[10px] text-gray-400 font-normal">
+                                    {h.jobTitle}
+                                  </span>
+                                )}
                               </td>
-                              <td className="py-2 px-3">
+                              <td className="py-2.5 px-3">
                                 <span
                                   className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                                     h.tierName === 'Senior'
@@ -1226,28 +1271,54 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                                   {h.tierName} ({h.multiplier})
                                 </span>
                               </td>
-                              <td className="py-2 px-3 text-[11px]">
+                              <td className="py-2.5 px-3 text-[11px]">
                                 {h.parentStatus === 'Active' ? (
-                                  <span className="text-[#38bdf8]">
-                                    Broker #{h.parentBrokerId} ({h.effectivePaySharePct})
-                                  </span>
+                                  <div>
+                                    <span className="text-[#38bdf8] font-semibold">
+                                      Broker #{h.parentBrokerId}
+                                    </span>
+                                    <span className="text-gray-400 block text-[10px]">
+                                      Share: {h.effectivePaySharePct}
+                                    </span>
+                                  </div>
                                 ) : (
                                   <span className="text-gray-500">None / Inactive</span>
                                 )}
                               </td>
-                              <td className="py-2 px-3 text-right text-gray-400">
-                                ${h.yesterdayClockUsd.toFixed(2)}
+                              <td className="py-2.5 px-3 text-right text-gray-400">
+                                <div className="font-semibold">${h.yesterdayClockUsd.toFixed(2)}</div>
+                                <div className="text-[10px] text-gray-500 font-normal">
+                                  {Math.max(0, Math.round(h.yesterdayClockUsd / (result?.stonkPriceUsd || 0.004955)))} $STONKBROKER
+                                </div>
                               </td>
-                              <td className="py-2 px-3 text-right text-gray-200 font-semibold">
-                                ${h.currentClockUsd.toFixed(2)}
+                              <td className="py-2.5 px-3 text-right font-semibold">
+                                <div className="text-white">${h.currentClockUsd.toFixed(2)}</div>
+                                <div className="text-[10px] text-gray-400 font-normal">
+                                  {h.totalTokens > 0 ? (
+                                    <>
+                                      <span>{h.totalTokens.toFixed(1)} $STONKBROKER</span>
+                                      {h.parentTokens > 0 ? (
+                                        <span className="text-[#38bdf8] block text-[9px]">
+                                          ({h.baseTokens.toFixed(1)} base + {h.parentTokens.toFixed(1)} parent)
+                                        </span>
+                                      ) : (
+                                        <span className="text-gray-500 block text-[9px]">
+                                          ({h.baseTokens.toFixed(1)} base)
+                                        </span>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <span>0 $STONKBROKER</span>
+                                  )}
+                                </div>
                               </td>
-                              <td className="py-2 px-3 text-right text-[#38bdf8]">
+                              <td className="py-2.5 px-3 text-right text-[#38bdf8] font-semibold">
                                 +${h.baseShareUsd.toFixed(2)}
                               </td>
-                              <td className="py-2 px-3 text-right text-[#cfff04]">
+                              <td className="py-2.5 px-3 text-right text-[#cfff04] font-semibold">
                                 {h.parentShareUsd > 0 ? `+$${h.parentShareUsd.toFixed(2)}` : '—'}
                               </td>
-                              <td className="py-2 px-3 text-right font-bold text-[#cfff04]">
+                              <td className="py-2.5 px-3 text-right font-bold text-[#cfff04]">
                                 +${h.diffUsd.toFixed(2)}
                                 <span className="text-[10px] text-gray-400 font-normal block">
                                   ≈ {h.diffStonk} $STONKBROKER
@@ -1262,10 +1333,16 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                               SUM TOTAL ({selectedDayHoldings.length} HOLDINGS)
                             </td>
                             <td className="py-3 px-3 text-right text-gray-300">
-                              ${selectedDayTotals.totalYesterdayClock.toFixed(2)}
+                              <div>${selectedDayTotals.totalYesterdayClock.toFixed(2)}</div>
+                              <div className="text-[10px] text-gray-500 font-normal">
+                                {Math.round(selectedDayTotals.totalYesterdayClock / (result?.stonkPriceUsd || 0.004955)).toLocaleString()} $STONKBROKER
+                              </div>
                             </td>
                             <td className="py-3 px-3 text-right text-white">
-                              ${selectedDayTotals.totalCurrentClock.toFixed(2)}
+                              <div>${selectedDayTotals.totalCurrentClock.toFixed(2)}</div>
+                              <div className="text-[10px] text-gray-400 font-normal">
+                                {selectedDayHoldings.reduce((sum, h) => sum + h.totalTokens, 0).toFixed(1)} $STONKBROKER
+                              </div>
                             </td>
                             <td className="py-3 px-3 text-right text-[#38bdf8]">
                               +${selectedDayModal.baseAccruedUsd.toFixed(2)}
@@ -1274,7 +1351,10 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                               +${selectedDayModal.parentSliceAccruedUsd.toFixed(2)}
                             </td>
                             <td className="py-3 px-3 text-right text-base text-[#cfff04]">
-                              +${selectedDayModal.dailyAccruedUsd.toFixed(2)} USD
+                              <div>+${selectedDayModal.dailyAccruedUsd.toFixed(2)} USD</div>
+                              <div className="text-[10px] text-[#cfff04]/80 font-normal">
+                                ≈ {selectedDayModal.dailyAccruedStonk.toLocaleString()} $STONKBROKER
+                              </div>
                             </td>
                           </tr>
                         </tfoot>
