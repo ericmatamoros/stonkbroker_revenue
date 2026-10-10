@@ -55,6 +55,7 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
   const [volumeMultiplier, setVolumeMultiplier] = useState<number>(1);
   const [payoutMode, setPayoutMode] = useState<'stonk' | 'basket'>('stonk');
+  const [projectionBasis, setProjectionBasis] = useState<'24h' | '7d' | '30d'>('24h');
   const [activeTab, setActiveTab] = useState<'brokers' | 'interns'>('brokers');
   const [historyMetric, setHistoryMetric] = useState<'usd' | 'stonk' | 'eth'>('usd');
   const [historyView, setHistoryView] = useState<'daily' | 'cumulative' | 'sources'>('daily');
@@ -125,6 +126,65 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
     });
     return evts.reverse();
   }, [accrualHistory]);
+
+  const activeProjection = useMemo(() => {
+    if (!result?.projections) return null;
+    const rates = result.projections.rates;
+    if (!rates) {
+      return {
+        dailyUsd: result.projections.dailyUsd,
+        dailyStonk: result.projections.dailyStonk,
+        dailyEth: result.projections.dailyEth,
+        weeklyUsd: result.projections.weeklyUsd,
+        weeklyStonk: result.projections.weeklyStonk,
+        weeklyEth: result.projections.weeklyEth,
+        monthlyUsd: result.projections.monthlyUsd,
+        monthlyStonk: result.projections.monthlyStonk,
+        monthlyEth: result.projections.monthlyEth,
+        annualUsd: result.projections.annualUsd,
+        annualStonk: result.projections.annualStonk,
+        annualEth: result.projections.annualEth,
+        internBaseDailyUsd: result.projections.internBaseDailyUsd,
+        parentSliceDailyUsd: result.projections.parentSliceDailyUsd,
+        brokerDailyEth: result.projections.brokerDailyEth || 0,
+        label: 'Live 24h Drop Pace',
+      };
+    }
+    const snap =
+      projectionBasis === '7d'
+        ? rates.avg7d
+        : projectionBasis === '30d'
+        ? rates.avg30d
+        : rates.pace24h;
+
+    const dUsd = snap.dailyUsd;
+    const dStonk = snap.dailyStonk;
+    const dEth = snap.dailyEth;
+
+    return {
+      dailyUsd: dUsd,
+      dailyStonk: dStonk,
+      dailyEth: dEth,
+      weeklyUsd: dUsd * 7,
+      weeklyStonk: dStonk * 7,
+      weeklyEth: dEth * 7,
+      monthlyUsd: dUsd * 30,
+      monthlyStonk: dStonk * 30,
+      monthlyEth: dEth * 30,
+      annualUsd: dUsd * 365,
+      annualStonk: dStonk * 365,
+      annualEth: dEth * 365,
+      internBaseDailyUsd: snap.internBaseDailyUsd,
+      parentSliceDailyUsd: snap.parentSliceDailyUsd,
+      brokerDailyEth: snap.brokerDailyUsd / 2486,
+      label:
+        projectionBasis === '7d'
+          ? '7-Day Smoothed Average'
+          : projectionBasis === '30d'
+          ? '30-Day Historical Mean'
+          : 'Live 24h Drop Pace',
+    };
+  }, [result?.projections, projectionBasis]);
 
   const selectedDayHoldings = useMemo(() => {
     if (!selectedDayModal || !result) return [];
@@ -451,23 +511,63 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                 {/* Engine Source Breakdown Pills */}
                 <div className="mt-2.5 flex items-center gap-2 flex-wrap">
                   <span className="text-[11px] bg-[#a855f7]/15 text-[#c084fc] border border-[#a855f7]/30 px-2 py-0.5 rounded font-medium">
-                    Intern Pot Base: ${(result.projections.internBaseDailyUsd || 0).toFixed(2)}/day (406.7 $STONKBROKER)
+                    Intern Pot Base: ${(activeProjection?.internBaseDailyUsd || 0).toFixed(2)}/day (~{Math.round((activeProjection?.internBaseDailyUsd || 0) / (result.stonkPriceUsd || 0.004955))} $STONKBROKER)
                   </span>
-                  {(result.projections.parentSliceDailyUsd || 0) > 0 && (
+                  {(activeProjection?.parentSliceDailyUsd || 0) > 0 && (
                     <span className="text-[11px] bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/30 px-2 py-0.5 rounded font-medium">
-                      Active Parent Slices: +${(result.projections.parentSliceDailyUsd || 0).toFixed(2)}/day (~{((result.projections.parentSliceDailyUsd || 0) / (result.stonkPriceUsd || 0.004955)).toFixed(0)} $STONKBROKER)
+                      Active Parent Slices: +${(activeProjection?.parentSliceDailyUsd || 0).toFixed(2)}/day (~{Math.round((activeProjection?.parentSliceDailyUsd || 0) / (result.stonkPriceUsd || 0.004955))} $STONKBROKER)
                     </span>
                   )}
-                  {(result.projections.brokerDailyEth || 0) > 0 && (
+                  {(activeProjection?.brokerDailyEth || 0) > 0 && (
                     <span className="text-[11px] bg-[#cfff04]/15 text-[#cfff04] border border-[#cfff04]/30 px-2 py-0.5 rounded font-medium">
-                      Broker Clock In: +${((result.projections.brokerDailyEth || 0) * 2486).toFixed(2)}/day
+                      Broker Clock In: +${((activeProjection?.brokerDailyEth || 0) * 2486).toFixed(2)}/day
                     </span>
                   )}
+                  <span className="text-[11px] bg-[#252f40] text-gray-300 border border-[#3b475c] px-2 py-0.5 rounded font-medium">
+                    Basis: {activeProjection?.label}
+                  </span>
                 </div>
               </div>
 
-              {/* Controls: Payout Mode + Surge Slider */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              {/* Controls: Basis Selector + Payout Mode + Surge Slider */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 flex-wrap">
+                {/* Basis selector */}
+                <div className="bg-[#1b2230] border border-[#2c374c] rounded-xl p-1 flex items-center gap-1">
+                  <button
+                    onClick={() => setProjectionBasis('24h')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                      projectionBasis === '24h'
+                        ? 'bg-[#cfff04] text-black shadow'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                    title="Live 24-hour drop run-rate"
+                  >
+                    24h Pace ({result.projections.rates?.pace24h ? `$${result.projections.rates.pace24h.dailyUsd.toFixed(2)}/d` : 'Live'})
+                  </button>
+                  <button
+                    onClick={() => setProjectionBasis('7d')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                      projectionBasis === '7d'
+                        ? 'bg-[#cfff04] text-black shadow'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                    title="Smoothed 7-day average pace"
+                  >
+                    7D Avg ({result.projections.rates?.avg7d ? `$${result.projections.rates.avg7d.dailyUsd.toFixed(2)}/d` : '7D'})
+                  </button>
+                  <button
+                    onClick={() => setProjectionBasis('30d')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                      projectionBasis === '30d'
+                        ? 'bg-[#cfff04] text-black shadow'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                    title="30-day historical mean from wallet ledger"
+                  >
+                    30D Mean ({result.projections.rates?.avg30d ? `$${result.projections.rates.avg30d.dailyUsd.toFixed(2)}/d` : '30D'})
+                  </button>
+                </div>
+
                 {/* Payout asset toggle */}
                 <div className="bg-[#1b2230] border border-[#2c374c] rounded-xl p-1 flex items-center gap-1">
                   <button
@@ -520,52 +620,52 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
               <div className="bg-[#181f2c] border border-[#273244] rounded-xl p-4">
                 <div className="text-xs text-gray-400 font-medium mb-1">Daily Projected</div>
                 <div className="text-2xl font-bold text-white mono">
-                  ${(result.projections.dailyUsd * volumeMultiplier).toFixed(2)}
+                  ${((activeProjection?.dailyUsd || 0) * volumeMultiplier).toFixed(2)}
                 </div>
                 <div className="text-xs text-[#cfff04] mono mt-1 font-bold">
-                  ≈ {((result.projections.dailyStonk || 0) * volumeMultiplier).toFixed(0)} $STONKBROKER / day
+                  ≈ {((activeProjection?.dailyStonk || 0) * volumeMultiplier).toFixed(0)} $STONKBROKER / day
                 </div>
                 <div className="text-[11px] text-gray-400 mono mt-0.5">
-                  {(result.projections.dailyEth * volumeMultiplier).toFixed(5)} ETH / day
+                  {((activeProjection?.dailyEth || 0) * volumeMultiplier).toFixed(5)} ETH / day
                 </div>
               </div>
 
               <div className="bg-[#181f2c] border border-[#273244] rounded-xl p-4">
                 <div className="text-xs text-gray-400 font-medium mb-1">Weekly Projected</div>
                 <div className="text-2xl font-bold text-white mono">
-                  ${(result.projections.weeklyUsd * volumeMultiplier).toFixed(2)}
+                  ${((activeProjection?.weeklyUsd || 0) * volumeMultiplier).toFixed(2)}
                 </div>
                 <div className="text-xs text-[#cfff04] mono mt-1 font-bold">
-                  ≈ {((result.projections.weeklyStonk || 0) * volumeMultiplier).toLocaleString(undefined, { maximumFractionDigits: 0 })} $STONKBROKER / week
+                  ≈ {((activeProjection?.weeklyStonk || 0) * volumeMultiplier).toLocaleString(undefined, { maximumFractionDigits: 0 })} $STONKBROKER / week
                 </div>
                 <div className="text-[11px] text-gray-400 mono mt-0.5">
-                  {(result.projections.weeklyEth * volumeMultiplier).toFixed(4)} ETH / week
+                  {((activeProjection?.weeklyEth || 0) * volumeMultiplier).toFixed(4)} ETH / week
                 </div>
               </div>
 
               <div className="bg-[#181f2c] border border-[#273244] rounded-xl p-4">
                 <div className="text-xs text-gray-400 font-medium mb-1">Monthly Projected</div>
                 <div className="text-2xl font-bold text-white mono">
-                  ${(result.projections.monthlyUsd * volumeMultiplier).toFixed(2)}
+                  ${((activeProjection?.monthlyUsd || 0) * volumeMultiplier).toFixed(2)}
                 </div>
                 <div className="text-xs text-[#cfff04] mono mt-1 font-bold">
-                  ≈ {((result.projections.monthlyStonk || 0) * volumeMultiplier).toLocaleString(undefined, { maximumFractionDigits: 0 })} $STONKBROKER / mo
+                  ≈ {((activeProjection?.monthlyStonk || 0) * volumeMultiplier).toLocaleString(undefined, { maximumFractionDigits: 0 })} $STONKBROKER / mo
                 </div>
                 <div className="text-[11px] text-gray-400 mono mt-0.5">
-                  {(result.projections.monthlyEth * volumeMultiplier).toFixed(3)} ETH / month
+                  {((activeProjection?.monthlyEth || 0) * volumeMultiplier).toFixed(3)} ETH / month
                 </div>
               </div>
 
               <div className="bg-[#181f2c] border border-[#273244] rounded-xl p-4">
                 <div className="text-xs text-gray-400 font-medium mb-1">Annual Projected</div>
                 <div className="text-2xl font-bold text-[#cfff04] mono">
-                  ${(result.projections.annualUsd * volumeMultiplier).toFixed(2)}
+                  ${((activeProjection?.annualUsd || 0) * volumeMultiplier).toFixed(2)}
                 </div>
                 <div className="text-xs text-[#cfff04] mono mt-1 font-bold">
-                  ≈ {((result.projections.annualStonk || 0) * volumeMultiplier).toLocaleString(undefined, { maximumFractionDigits: 0 })} $STONKBROKER / yr
+                  ≈ {((activeProjection?.annualStonk || 0) * volumeMultiplier).toLocaleString(undefined, { maximumFractionDigits: 0 })} $STONKBROKER / yr
                 </div>
                 <div className="text-[11px] text-gray-400 mono mt-0.5">
-                  {(result.projections.annualEth * volumeMultiplier).toFixed(2)} ETH / year
+                  {((activeProjection?.annualEth || 0) * volumeMultiplier).toFixed(2)} ETH / year
                 </div>
               </div>
             </div>
@@ -575,7 +675,7 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
               <div className="flex items-center justify-between text-xs font-semibold text-gray-300 mb-2">
                 <span>
                   {payoutMode === 'stonk'
-                    ? 'Active Payout Delivery: 100% $STONKBROKER (Real spot price $0.004955)'
+                    ? `Active Payout Delivery: 100% $STONKBROKER (Real spot price $${(result.stonkPriceUsd || 0.004955).toFixed(6)})`
                     : 'Electable Multi-Asset Diversification Menu:'}
                 </span>
                 <span className="text-gray-400 font-normal">
@@ -591,7 +691,7 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                     </div>
                     <div>
                       <div className="text-sm font-bold text-white mono">
-                        {((result.projections.dailyStonk || 0) * volumeMultiplier).toFixed(2)} $STONKBROKER per day
+                        {((activeProjection?.dailyStonk || 0) * volumeMultiplier).toFixed(2)} $STONKBROKER per day
                       </div>
                       <div className="text-xs text-gray-400">
                         Spot price: ${(result.stonkPriceUsd || 0.004955).toFixed(6)} USD • Onchain DEX source
@@ -600,29 +700,32 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                   </div>
                   <div className="text-right">
                     <div className="text-base font-bold text-[#10b981] mono">
-                      ${(result.projections.dailyUsd * volumeMultiplier).toFixed(2)} USD / day
+                      ${((activeProjection?.dailyUsd || 0) * volumeMultiplier).toFixed(2)} USD / day
                     </div>
                     <div className="text-xs text-gray-400 mono">
-                      ${(result.projections.monthlyUsd * volumeMultiplier).toFixed(2)} / month
+                      ${((activeProjection?.monthlyUsd || 0) * volumeMultiplier).toFixed(2)} / month
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
-                  {result.projections.perTokenDaily.map((item, idx) => (
-                    <div key={idx} className="bg-[#19202c] border border-[#252f40] rounded-lg p-2.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-white mono">{item.symbol}</span>
-                        <span className="text-gray-400 mono">
-                          ${(item.usd * volumeMultiplier).toFixed(2)}
-                        </span>
+                  {result.projections.perTokenDaily.map((item, idx) => {
+                    const scale = (activeProjection?.dailyUsd || 1) / (result.projections.dailyUsd || 1);
+                    return (
+                      <div key={idx} className="bg-[#19202c] border border-[#252f40] rounded-lg p-2.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-white mono">{item.symbol}</span>
+                          <span className="text-gray-400 mono">
+                            ${(item.usd * scale * volumeMultiplier).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-[#38bdf8] mono mt-0.5 truncate">
+                          ≈ {(item.amount * scale * volumeMultiplier).toFixed(item.symbol === '$STONKBROKER' ? 0 : 4)}{' '}
+                          units
+                        </div>
                       </div>
-                      <div className="text-[11px] text-[#38bdf8] mono mt-0.5 truncate">
-                        ≈ {(item.amount * volumeMultiplier).toFixed(item.symbol === '$STONKBROKER' ? 0 : 4)}{' '}
-                        units
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

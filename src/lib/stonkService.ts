@@ -1034,40 +1034,64 @@ export async function inspectWallet(
     intern.tbaTotalUsd = totalUsd;
   }
 
-  // 5. Calibrated Dual-Stream Revenue Projections
-  // Stream A: Owned active brokers from Broker Clock In Engine
-  const brokerShareRatio =
-    networkTotalWeight > 0 ? totalActiveBrokerWeight / networkTotalWeight : 0;
-  const brokerDailyEth = brokerShareRatio * dailyNetworkEth;
-  const brokerDailyUsd = brokerDailyEth * ethPriceUsd;
+  // 5. Generate 30-day historical ledger
+  const history30d = generateWallet30dAccrualHistory(
+    normalized,
+    brokers,
+    interns,
+    stonkPriceUsd,
+    ethPriceUsd,
+    dropsRes?.drops || []
+  );
 
-  // Stream B: Owned active interns from Intern Clock In Engine
-  // Onchain rule: Base Freshman (1.00x) earns 25.4158 $STONKBROKER/day (~$0.126 USD/day)
-  // Senior (2.00x) earns 50.8316 $STONKBROKER/day (~$0.252 USD/day)
-  let internBaseDailyStonk = 0;
-  for (const intern of interns) {
-    if (intern.isActivated) {
-      const tierConf = INTERN_TIER_CONFIG[intern.tierName] || INTERN_TIER_CONFIG.Freshman;
-      internBaseDailyStonk += 25.4158 * tierConf.mult;
-    }
-  }
-  const internBaseDailyUsd = internBaseDailyStonk * stonkPriceUsd;
+  // 6. Calibrated Multi-Rate Revenue Projections Engine
+  // Extract engine volumes from broker-rewards windows
+  const w7d = rewardsRes?.windows?.find((w: any) => w.key === '7d');
+
+  const w24hInternUsd = Number(w24h?.engines?.find((e: any) => e.key === 'interns')?.usd || 79.54);
+  const w24hBrokerUsd = Number(w24h?.engines?.find((e: any) => e.key === 'clockin3')?.usd || 2695.93);
+  const w7dInternDailyUsd = Number(w7d?.engines?.find((e: any) => e.key === 'interns')?.usd || 1952.83) / 7;
+  const w7dBrokerDailyUsd = Number(w7d?.engines?.find((e: any) => e.key === 'clockin3')?.usd || 28243.38) / 7;
+
+  const activeBrokerCount = analyticsRes?.activation?.activeCount || 1874;
+  const internNetworkWeight = 24822900;
+  const internShareRatio = internNetworkWeight > 0 ? totalActiveInternWeight / internNetworkWeight : 0;
+  const brokerShareRatio = networkTotalWeight > 0 ? totalActiveBrokerWeight / networkTotalWeight : 0;
+
+  // Stream A: Owned active brokers
+  const brokerDailyUsd24h = brokerShareRatio * w24hBrokerUsd;
+  const brokerDailyUsd7d = brokerShareRatio * w7dBrokerDailyUsd;
+
+  // Stream B: Intern base share
+  const internBaseDailyUsd24h = w24hInternUsd * internShareRatio;
+  const internBaseDailyUsd7d = w7dInternDailyUsd * internShareRatio;
 
   // Stream C: Active parent broker slice
-  // Average active broker generates ~3.20 ETH/day / 1879 active brokers = ~0.0017 ETH/day (~$4.23 USD/day)
-  const avgActiveBrokerDailyUsd = (3.20 * ethPriceUsd) / 1879;
-  let parentSliceDailyUsd = 0;
+  let parentSliceDailyUsd24h = 0;
+  let parentSliceDailyUsd7d = 0;
   for (const intern of interns) {
     if (intern.parentStatus === 'Active') {
       const pct = parseFloat(intern.paySharePct.replace('%', '')) || 0;
-      parentSliceDailyUsd += (pct / 100) * avgActiveBrokerDailyUsd;
+      parentSliceDailyUsd24h += (pct / 100) * (w24hBrokerUsd / activeBrokerCount);
+      parentSliceDailyUsd7d += (pct / 100) * (w7dBrokerDailyUsd / activeBrokerCount);
     }
   }
-  const parentSliceDailyStonk = parentSliceDailyUsd / stonkPriceUsd;
 
-  const dailyUsd = internBaseDailyUsd + parentSliceDailyUsd + brokerDailyUsd;
+  // 30-day historical averages from the wallet ledger (filtering one-time protocol pool seed spikes > $25)
+  const operatingDays = history30d.filter((d) => d.dailyAccruedUsd < 25);
+  const daysForAvg = operatingDays.length > 0 ? operatingDays : history30d;
+  const avg30dBaseUsd = daysForAvg.reduce((s, d) => s + d.baseAccruedUsd, 0) / daysForAvg.length;
+  const avg30dParentUsd = daysForAvg.reduce((s, d) => s + d.parentSliceAccruedUsd, 0) / daysForAvg.length;
+  const avg30dBrokerUsd = daysForAvg.reduce((s, d) => s + (d.brokerAccruedUsd || 0), 0) / daysForAvg.length;
+
+  const dailyUsd24h = internBaseDailyUsd24h + parentSliceDailyUsd24h + brokerDailyUsd24h;
+  const dailyUsd7d = internBaseDailyUsd7d + parentSliceDailyUsd7d + brokerDailyUsd7d;
+  const dailyUsd30d = avg30dBaseUsd + avg30dParentUsd + avg30dBrokerUsd;
+
+  // Default baseline projection: Today's live 24h drop run-rate
+  const dailyUsd = Number(dailyUsd24h.toFixed(2));
   const dailyEth = dailyUsd / ethPriceUsd;
-  const dailyStonk = internBaseDailyStonk + parentSliceDailyStonk + (brokerDailyUsd / stonkPriceUsd);
+  const dailyStonk = dailyUsd / stonkPriceUsd;
 
   const weeklyEth = dailyEth * 7;
   const weeklyUsd = dailyUsd * 7;
@@ -1082,7 +1106,6 @@ export async function inspectWallet(
   const annualStonk = dailyStonk * 365;
 
   const totalWalletWeight = totalActiveBrokerWeight + totalActiveInternWeight;
-  const internNetworkWeight = 24822900;
   const totalNetworkWeight = networkTotalWeight + internNetworkWeight;
   const overallSharePercentage =
     totalNetworkWeight > 0 ? (totalWalletWeight / totalNetworkWeight) * 100 : 0;
@@ -1142,11 +1165,37 @@ export async function inspectWallet(
     weeklyStonk,
     monthlyStonk,
     annualStonk,
-    internBaseDailyUsd,
-    parentSliceDailyUsd,
-    brokerDailyEth,
-    internEngineDailyEth: internBaseDailyUsd / ethPriceUsd,
-    parentCutDailyEth: parentSliceDailyUsd / ethPriceUsd,
+    internBaseDailyUsd: Number(internBaseDailyUsd24h.toFixed(2)),
+    parentSliceDailyUsd: Number(parentSliceDailyUsd24h.toFixed(2)),
+    brokerDailyEth: Number((brokerDailyUsd24h / ethPriceUsd).toFixed(5)),
+    internEngineDailyEth: internBaseDailyUsd24h / ethPriceUsd,
+    parentCutDailyEth: parentSliceDailyUsd24h / ethPriceUsd,
+    rates: {
+      pace24h: {
+        dailyUsd: Number(dailyUsd24h.toFixed(2)),
+        dailyStonk: Math.round(dailyUsd24h / stonkPriceUsd),
+        dailyEth: Number((dailyUsd24h / ethPriceUsd).toFixed(5)),
+        internBaseDailyUsd: Number(internBaseDailyUsd24h.toFixed(2)),
+        parentSliceDailyUsd: Number(parentSliceDailyUsd24h.toFixed(2)),
+        brokerDailyUsd: Number(brokerDailyUsd24h.toFixed(2)),
+      },
+      avg7d: {
+        dailyUsd: Number(dailyUsd7d.toFixed(2)),
+        dailyStonk: Math.round(dailyUsd7d / stonkPriceUsd),
+        dailyEth: Number((dailyUsd7d / ethPriceUsd).toFixed(5)),
+        internBaseDailyUsd: Number(internBaseDailyUsd7d.toFixed(2)),
+        parentSliceDailyUsd: Number(parentSliceDailyUsd7d.toFixed(2)),
+        brokerDailyUsd: Number(brokerDailyUsd7d.toFixed(2)),
+      },
+      avg30d: {
+        dailyUsd: Number(dailyUsd30d.toFixed(2)),
+        dailyStonk: Math.round(dailyUsd30d / stonkPriceUsd),
+        dailyEth: Number((dailyUsd30d / ethPriceUsd).toFixed(5)),
+        internBaseDailyUsd: Number(avg30dBaseUsd.toFixed(2)),
+        parentSliceDailyUsd: Number(avg30dParentUsd.toFixed(2)),
+        brokerDailyUsd: Number(avg30dBrokerUsd.toFixed(2)),
+      },
+    },
     perTokenDaily,
   };
 
@@ -1159,15 +1208,6 @@ export async function inspectWallet(
     const cred = i.pendingCredits.find((c) => c.symbol.includes('STONK'));
     return acc + (cred ? parseFloat(cred.amountFormatted) : 0);
   }, 0);
-
-  const history30d = generateWallet30dAccrualHistory(
-    normalized,
-    brokers,
-    interns,
-    stonkPriceUsd,
-    ethPriceUsd,
-    dropsRes?.drops || []
-  );
 
   const result: WalletInspectionResult = {
     walletAddress: normalized,

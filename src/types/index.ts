@@ -189,6 +189,15 @@ export interface InternNFTItem {
   pendingTotalUsd: number;
 }
 
+export interface ProjectionRateSnapshot {
+  dailyUsd: number;
+  dailyStonk: number;
+  dailyEth: number;
+  internBaseDailyUsd: number;
+  parentSliceDailyUsd: number;
+  brokerDailyUsd: number;
+}
+
 export interface RevenueProjections {
   walletWeight: number;
   networkWeight: number;
@@ -210,6 +219,11 @@ export interface RevenueProjections {
   brokerDailyEth?: number;
   internEngineDailyEth?: number;
   parentCutDailyEth?: number;
+  rates?: {
+    pace24h: ProjectionRateSnapshot;
+    avg7d: ProjectionRateSnapshot;
+    avg30d: ProjectionRateSnapshot;
+  };
   perTokenDaily: Array<{
     symbol: string;
     amount: number;
