@@ -809,7 +809,7 @@ export async function inspectWallet(
     const ownedItem = ownedMap.get(id);
     const numId = Number(id);
     let parentBrokerId = ownedItem?.brokerId ? String(ownedItem.brokerId) : numId > 4444 ? String(numId - 4444) : String(numId);
-    let isActivated = ownedItem?.activated !== undefined ? Boolean(ownedItem.activated) : true;
+    const isActivated = ownedItem?.activated !== undefined ? Boolean(ownedItem.activated) : true;
     let tierName = 'Freshman';
     let jobTitle = 'Floor Runner';
     let paySharePct = '0.25%';
@@ -1247,7 +1247,7 @@ export function generateWallet30dAccrualHistory(
     const displayDate = `${dayDate.getMonth() + 1}/${String(dayDate.getDate()).padStart(2, '0')}`;
 
     let internsHeld = 0;
-    let brokersHeld = brokers.length;
+    const brokersHeld = brokers.length;
     let walletWeight = 0;
     let activeParents = 0;
     const events: WalletTransactionEvent[] = [];
