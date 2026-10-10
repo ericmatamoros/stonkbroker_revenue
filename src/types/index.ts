@@ -240,6 +240,7 @@ export interface WalletAccrualDay {
   dailyAccruedEth: number;
   cumulativeAccruedUsd: number;
   cumulativeAccruedStonk: number;
+  avgPerInternUsd?: number;
   events?: WalletTransactionEvent[];
 }
 

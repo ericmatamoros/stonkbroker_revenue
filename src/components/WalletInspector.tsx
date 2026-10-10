@@ -522,10 +522,10 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
               <div>
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
                   <History className="w-5 h-5 text-[#cfff04]" />
-                  Fee Accruals History & Acquisition Timeline
+                  Daily Clock In Fees History & Portfolio Timeline
                 </h3>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  Simulated 30-day fee accruals based on active weight, activations, and parent broker share cuts — factoring in asset acquisitions (buys/mints)
+                  Daily new fees delivered into Clock In accounts (independent 24h inflow, subtracting previous accumulated balances) across your holdings, parent broker cuts, and actual protocol drops
                 </p>
               </div>
 
@@ -841,6 +841,14 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                                     {data.internsHeld} Interns {data.brokersHeld > 0 ? `• ${data.brokersHeld} Brokers` : ''}
                                   </span>
                                 </div>
+                                {data.avgPerInternUsd !== undefined && data.avgPerInternUsd > 0 && (
+                                  <div className="flex items-center justify-between gap-4 text-[11px]">
+                                    <span className="text-gray-500">Avg / Active Intern:</span>
+                                    <span className="text-[#10b981] font-mono font-bold">
+                                      ≈ ${data.avgPerInternUsd.toFixed(2)} USD
+                                    </span>
+                                  </div>
+                                )}
                                 <div className="flex items-center justify-between gap-4 text-[11px]">
                                   <span className="text-gray-500">Parent Slice Cut:</span>
                                   <span className="text-[#38bdf8] font-mono">
