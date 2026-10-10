@@ -1,7 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { WalletInspectionResult } from '@/types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { WalletInspectionResult, WalletTransactionEvent } from '@/types';
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from 'recharts';
 import {
   Search,
   Wallet,
@@ -16,6 +27,11 @@ import {
   Database,
   RefreshCw,
   Coins,
+  History,
+  Calendar,
+  Sparkles,
+  ShoppingBag,
+  ArrowUpRight,
 } from 'lucide-react';
 
 interface WalletInspectorProps {
@@ -36,6 +52,9 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
   const [volumeMultiplier, setVolumeMultiplier] = useState<number>(1);
   const [payoutMode, setPayoutMode] = useState<'stonk' | 'basket'>('stonk');
   const [activeTab, setActiveTab] = useState<'brokers' | 'interns'>('brokers');
+  const [historyMetric, setHistoryMetric] = useState<'usd' | 'stonk' | 'eth'>('usd');
+  const [historyView, setHistoryView] = useState<'daily' | 'cumulative' | 'sources'>('daily');
+  const [historyDays, setHistoryDays] = useState<number>(30);
 
   const executeSearch = async (addrToSearch: string, forceRefresh = false) => {
     if (!addrToSearch || !/^0x[a-fA-F0-9]{40}$/.test(addrToSearch.trim())) {
@@ -72,6 +91,35 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
     setCopiedAddress(text);
     setTimeout(() => setCopiedAddress(null), 2000);
   };
+
+  const accrualHistory = useMemo(() => {
+    if (!result?.history30d) return [];
+    return result.history30d.slice(-historyDays);
+  }, [result?.history30d, historyDays]);
+
+  const historyTotals = useMemo(() => {
+    if (!accrualHistory.length) {
+      return { totalUsd: 0, totalStonk: 0, totalEth: 0, avgDailyUsd: 0, totalEvents: 0 };
+    }
+    const totalUsd = accrualHistory.reduce((sum, d) => sum + d.dailyAccruedUsd, 0);
+    const totalStonk = accrualHistory.reduce((sum, d) => sum + d.dailyAccruedStonk, 0);
+    const totalEth = accrualHistory.reduce((sum, d) => sum + d.dailyAccruedEth, 0);
+    const avgDailyUsd = totalUsd / accrualHistory.length;
+    const totalEvents = accrualHistory.reduce((sum, d) => sum + (d.events?.length || 0), 0);
+    return { totalUsd, totalStonk, totalEth, avgDailyUsd, totalEvents };
+  }, [accrualHistory]);
+
+  const recentEvents = useMemo(() => {
+    const evts: Array<{ date: string; displayDate: string; event: WalletTransactionEvent }> = [];
+    accrualHistory.forEach((day) => {
+      if (day.events && day.events.length > 0) {
+        day.events.forEach((e) => {
+          evts.push({ date: day.date, displayDate: day.displayDate, event: e });
+        });
+      }
+    });
+    return evts.reverse();
+  }, [accrualHistory]);
 
   return (
     <div className="space-y-6">
@@ -466,6 +514,443 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Historical Fee Accruals & Asset Timeline Chart */}
+          <div className="bg-[#13171f] border border-[#242b38] rounded-2xl p-6">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[#242b38]">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <History className="w-5 h-5 text-[#cfff04]" />
+                  Fee Accruals History & Acquisition Timeline
+                </h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Simulated 30-day fee accruals based on active weight, activations, and parent broker share cuts — factoring in asset acquisitions (buys/mints)
+                </p>
+              </div>
+
+              {/* Chart Controls */}
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                {/* Metric toggle */}
+                <div className="flex bg-[#0d1017] p-1 rounded-lg border border-[#242b38]">
+                  <button
+                    onClick={() => setHistoryMetric('usd')}
+                    className={`px-2.5 py-1 rounded font-medium transition ${
+                      historyMetric === 'usd'
+                        ? 'bg-[#cfff04] text-black font-bold'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    USD ($)
+                  </button>
+                  <button
+                    onClick={() => setHistoryMetric('stonk')}
+                    className={`px-2.5 py-1 rounded font-medium transition ${
+                      historyMetric === 'stonk'
+                        ? 'bg-[#cfff04] text-black font-bold'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    $STONKBROKER
+                  </button>
+                  <button
+                    onClick={() => setHistoryMetric('eth')}
+                    className={`px-2.5 py-1 rounded font-medium transition ${
+                      historyMetric === 'eth'
+                        ? 'bg-[#cfff04] text-black font-bold'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    ETH (Ξ)
+                  </button>
+                </div>
+
+                {/* View Mode toggle */}
+                <div className="flex bg-[#0d1017] p-1 rounded-lg border border-[#242b38]">
+                  <button
+                    onClick={() => setHistoryView('daily')}
+                    className={`px-2.5 py-1 rounded font-medium transition ${
+                      historyView === 'daily'
+                        ? 'bg-[#252f40] text-white font-bold'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Daily
+                  </button>
+                  <button
+                    onClick={() => setHistoryView('cumulative')}
+                    className={`px-2.5 py-1 rounded font-medium transition ${
+                      historyView === 'cumulative'
+                        ? 'bg-[#252f40] text-white font-bold'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Cumulative
+                  </button>
+                  <button
+                    onClick={() => setHistoryView('sources')}
+                    className={`px-2.5 py-1 rounded font-medium transition ${
+                      historyView === 'sources'
+                        ? 'bg-[#252f40] text-white font-bold'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    By Source
+                  </button>
+                </div>
+
+                {/* Days range toggle */}
+                <div className="flex bg-[#0d1017] p-1 rounded-lg border border-[#242b38]">
+                  {[7, 14, 30].map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setHistoryDays(d)}
+                      className={`px-2 py-1 rounded font-mono font-medium transition ${
+                        historyDays === d
+                          ? 'bg-[#cfff04]/20 text-[#cfff04] font-bold border border-[#cfff04]/30'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      {d}D
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick KPI Metrics Strip */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 my-4">
+              <div className="bg-[#181e29] border border-[#242b38] rounded-xl p-3">
+                <span className="text-[11px] text-gray-400 block font-medium">Period Total Accrued</span>
+                <span className="text-base font-bold text-[#cfff04] mono mt-0.5 block">
+                  {historyMetric === 'usd' && `$${historyTotals.totalUsd.toFixed(2)}`}
+                  {historyMetric === 'stonk' &&
+                    `${historyTotals.totalStonk.toLocaleString(undefined, { maximumFractionDigits: 0 })} $STONKBROKER`}
+                  {historyMetric === 'eth' && `${historyTotals.totalEth.toFixed(4)} ETH`}
+                </span>
+                <span className="text-[10px] text-gray-500">Last {historyDays} days of distributions</span>
+              </div>
+
+              <div className="bg-[#181e29] border border-[#242b38] rounded-xl p-3">
+                <span className="text-[11px] text-gray-400 block font-medium">Avg Daily Run-Rate</span>
+                <span className="text-base font-bold text-[#38bdf8] mono mt-0.5 block">
+                  {historyMetric === 'usd' && `$${historyTotals.avgDailyUsd.toFixed(2)} / d`}
+                  {historyMetric === 'stonk' &&
+                    `${(historyTotals.totalStonk / (historyDays || 1)).toFixed(0)} $STONKBROKER / d`}
+                  {historyMetric === 'eth' &&
+                    `${(historyTotals.totalEth / (historyDays || 1)).toFixed(4)} ETH / d`}
+                </span>
+                <span className="text-[10px] text-gray-500">Effective average daily reward</span>
+              </div>
+
+              <div className="bg-[#181e29] border border-[#242b38] rounded-xl p-3">
+                <span className="text-[11px] text-gray-400 block font-medium">Weight Evolution</span>
+                <span className="text-base font-bold text-[#10b981] mono mt-0.5 block">
+                  {accrualHistory[0]?.walletWeight?.toLocaleString() || 0} →{' '}
+                  {accrualHistory[accrualHistory.length - 1]?.walletWeight?.toLocaleString() || 0}{' '}
+                  <span className="text-xs text-gray-400 font-normal">bps</span>
+                </span>
+                <span className="text-[10px] text-gray-500">
+                  {((accrualHistory[accrualHistory.length - 1]?.walletWeight || 0) -
+                    (accrualHistory[0]?.walletWeight || 0) >=
+                  0
+                    ? '+'
+                    : '')}
+                  {(
+                    (accrualHistory[accrualHistory.length - 1]?.walletWeight || 0) -
+                    (accrualHistory[0]?.walletWeight || 0)
+                  ).toLocaleString()}{' '}
+                  bps delta
+                </span>
+              </div>
+
+              <div className="bg-[#181e29] border border-[#242b38] rounded-xl p-3">
+                <span className="text-[11px] text-gray-400 block font-medium">Portfolio Milestones</span>
+                <span className="text-base font-bold text-[#eab308] mono mt-0.5 block">
+                  {historyTotals.totalEvents} Transactions
+                </span>
+                <span className="text-[10px] text-gray-500">Buys, mints & activations</span>
+              </div>
+            </div>
+
+            {/* Interactive Chart */}
+            <div className="bg-[#0d1017] border border-[#1f2633] rounded-xl p-4">
+              <div className="h-64 sm:h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  {historyView === 'sources' ? (
+                    <AreaChart data={accrualHistory} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorBase" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="colorParent" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#cfff04" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#cfff04" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="colorBroker" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#a855f7" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1f2633" />
+                      <XAxis dataKey="displayDate" stroke="#6b7280" tick={{ fontSize: 11 }} />
+                      <YAxis
+                        stroke="#6b7280"
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(v) => `$${v.toFixed(1)}`}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#13171f',
+                          borderColor: '#242b38',
+                          borderRadius: '8px',
+                          color: '#fff',
+                        }}
+                        formatter={(val: any, name: any) => [
+                          `$${Number(val).toFixed(2)} USD`,
+                          name === 'baseAccruedUsd'
+                            ? 'Intern Base Clock In'
+                            : name === 'parentSliceAccruedUsd'
+                            ? 'Parent Broker Share Cut'
+                            : 'Broker NFT Pool',
+                        ]}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="baseAccruedUsd"
+                        stackId="1"
+                        stroke="#38bdf8"
+                        strokeWidth={2}
+                        fill="url(#colorBase)"
+                        name="baseAccruedUsd"
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="parentSliceAccruedUsd"
+                        stackId="1"
+                        stroke="#cfff04"
+                        strokeWidth={2}
+                        fill="url(#colorParent)"
+                        name="parentSliceAccruedUsd"
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="brokerAccruedUsd"
+                        stackId="1"
+                        stroke="#a855f7"
+                        strokeWidth={2}
+                        fill="url(#colorBroker)"
+                        name="brokerAccruedUsd"
+                      />
+                    </AreaChart>
+                  ) : historyView === 'cumulative' ? (
+                    <AreaChart data={accrualHistory} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorCumul" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1f2633" />
+                      <XAxis dataKey="displayDate" stroke="#6b7280" tick={{ fontSize: 11 }} />
+                      <YAxis
+                        stroke="#6b7280"
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(v) =>
+                          historyMetric === 'usd'
+                            ? `$${v.toFixed(0)}`
+                            : historyMetric === 'stonk'
+                            ? `${(v / 1000).toFixed(0)}k`
+                            : `${v.toFixed(3)}`
+                        }
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#13171f',
+                          borderColor: '#242b38',
+                          borderRadius: '8px',
+                          color: '#fff',
+                        }}
+                        formatter={(val: any) => [
+                          historyMetric === 'usd'
+                            ? `$${Number(val).toFixed(2)} USD`
+                            : historyMetric === 'stonk'
+                            ? `${Number(val).toLocaleString(undefined, { maximumFractionDigits: 0 })} $STONKBROKER`
+                            : `${Number(val).toFixed(4)} ETH`,
+                          'Cumulative Total',
+                        ]}
+                        labelFormatter={(label, payload) => {
+                          const item = payload?.[0]?.payload as any;
+                          return `${label} • Active Weight: ${item?.walletWeight?.toLocaleString()} bps (${item?.internsHeld} Interns)`;
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey={
+                          historyMetric === 'usd'
+                            ? 'cumulativeAccruedUsd'
+                            : historyMetric === 'stonk'
+                            ? 'cumulativeAccruedStonk'
+                            : 'cumulativeAccruedUsd'
+                        }
+                        stroke="#10b981"
+                        strokeWidth={2.5}
+                        fill="url(#colorCumul)"
+                      />
+                    </AreaChart>
+                  ) : (
+                    <BarChart data={accrualHistory} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1f2633" />
+                      <XAxis dataKey="displayDate" stroke="#6b7280" tick={{ fontSize: 11 }} />
+                      <YAxis
+                        stroke="#6b7280"
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(v) =>
+                          historyMetric === 'usd'
+                            ? `$${v.toFixed(1)}`
+                            : historyMetric === 'stonk'
+                            ? `${v.toFixed(0)}`
+                            : `${v.toFixed(4)}`
+                        }
+                      />
+                      <Tooltip
+                        content={({ active, payload, label }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            return (
+                              <div className="bg-[#13171f] border border-[#242b38] rounded-xl p-3 shadow-xl text-xs space-y-1.5">
+                                <div className="font-bold text-white flex items-center justify-between gap-4 border-b border-[#242b38] pb-1">
+                                  <span>{label}</span>
+                                  <span className="text-gray-400 font-mono">
+                                    {data.walletWeight.toLocaleString()} bps
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-4">
+                                  <span className="text-gray-400">Daily Accrued:</span>
+                                  <span className="font-bold text-[#cfff04] font-mono">
+                                    {historyMetric === 'usd' && `$${data.dailyAccruedUsd.toFixed(2)}`}
+                                    {historyMetric === 'stonk' &&
+                                      `${data.dailyAccruedStonk.toLocaleString(undefined, { maximumFractionDigits: 0 })} $STONKBROKER`}
+                                    {historyMetric === 'eth' && `${data.dailyAccruedEth.toFixed(4)} ETH`}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-4 text-[11px]">
+                                  <span className="text-gray-500">Holdings:</span>
+                                  <span className="text-gray-300 font-mono">
+                                    {data.internsHeld} Interns {data.brokersHeld > 0 ? `• ${data.brokersHeld} Brokers` : ''}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-4 text-[11px]">
+                                  <span className="text-gray-500">Parent Slice Cut:</span>
+                                  <span className="text-[#38bdf8] font-mono">
+                                    +${data.parentSliceAccruedUsd.toFixed(2)}/d
+                                  </span>
+                                </div>
+                                {data.events && data.events.length > 0 && (
+                                  <div className="mt-2 pt-1 border-t border-[#242b38]/60">
+                                    {data.events.map((evt: any, idx: number) => (
+                                      <div
+                                        key={idx}
+                                        className="text-[11px] text-[#eab308] bg-[#eab308]/10 px-2 py-0.5 rounded mt-1 flex items-center gap-1.5 font-medium"
+                                      >
+                                        <Sparkles className="w-3 h-3 flex-shrink-0" />
+                                        <span>
+                                          {evt.type.toUpperCase()}: {evt.assetName} (+{evt.weightDelta.toLocaleString()} bps)
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Bar dataKey={
+                        historyMetric === 'usd'
+                          ? 'dailyAccruedUsd'
+                          : historyMetric === 'stonk'
+                          ? 'dailyAccruedStonk'
+                          : 'dailyAccruedEth'
+                      } fill="#cfff04" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  )}
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Asset Transactions & Acquisition Milestones Feed */}
+            {recentEvents.length > 0 && (
+              <div className="mt-5 pt-4 border-t border-[#242b38]">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className="w-4 h-4 text-[#eab308]" />
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      Portfolio Acquisition Milestones (Past {historyDays} Days)
+                    </h4>
+                  </div>
+                  <span className="text-[11px] text-gray-400">
+                    {recentEvents.length} transactions influencing yield
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {recentEvents.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-[#0d1017] border border-[#1f2633] rounded-xl p-3 flex items-start gap-3 hover:border-[#2f3b50] transition"
+                    >
+                      <div
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                          item.event.type === 'buy'
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : item.event.type === 'mint'
+                            ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        }`}
+                      >
+                        {item.event.type === 'buy' && <ShoppingBag className="w-3.5 h-3.5" />}
+                        {item.event.type === 'mint' && <Sparkles className="w-3.5 h-3.5" />}
+                        {item.event.type === 'activate' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <span
+                            className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded ${
+                              item.event.type === 'buy'
+                                ? 'bg-emerald-500/10 text-emerald-400'
+                                : item.event.type === 'mint'
+                                ? 'bg-purple-500/10 text-purple-400'
+                                : 'bg-amber-500/10 text-amber-400'
+                            }`}
+                          >
+                            {item.event.type}
+                          </span>
+                          <span className="text-[11px] text-gray-500 mono">{item.displayDate}</span>
+                        </div>
+
+                        <div className="text-xs font-bold text-white truncate mt-1">
+                          {item.event.title}
+                        </div>
+                        <div className="text-[11px] text-gray-400 truncate">
+                          {item.event.assetName}
+                        </div>
+
+                        <div className="mt-1.5 flex items-center justify-between text-[11px] pt-1.5 border-t border-[#1f2633]">
+                          <span className="text-gray-500">Weight Impact:</span>
+                          <span className="text-[#10b981] font-bold mono">
+                            +{item.event.weightDelta.toLocaleString()} bps
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Holdings Detail Tabs: Brokers vs Interns */}

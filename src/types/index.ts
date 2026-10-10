@@ -217,6 +217,32 @@ export interface RevenueProjections {
   }>;
 }
 
+export interface WalletTransactionEvent {
+  type: 'buy' | 'sell' | 'mint' | 'activate';
+  title: string;
+  assetName: string;
+  tokenId: string;
+  weightDelta: number;
+}
+
+export interface WalletAccrualDay {
+  date: string;
+  displayDate: string;
+  internsHeld: number;
+  brokersHeld: number;
+  walletWeight: number;
+  sharePct: number;
+  baseAccruedUsd: number;
+  parentSliceAccruedUsd: number;
+  brokerAccruedUsd: number;
+  dailyAccruedUsd: number;
+  dailyAccruedStonk: number;
+  dailyAccruedEth: number;
+  cumulativeAccruedUsd: number;
+  cumulativeAccruedStonk: number;
+  events?: WalletTransactionEvent[];
+}
+
 export interface WalletInspectionResult {
   walletAddress: string;
   brokersCount: number;
@@ -235,6 +261,7 @@ export interface WalletInspectionResult {
   totalPendingStonk: number;
   stonkPriceUsd: number;
   projections: RevenueProjections;
+  history30d?: WalletAccrualDay[];
   cachedAt: string;
   fromCache: boolean;
 }
