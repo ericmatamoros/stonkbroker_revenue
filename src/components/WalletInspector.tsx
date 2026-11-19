@@ -455,13 +455,25 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                 <Coins className="w-4 h-4 text-[#10b981]" />
               </div>
               <div className="text-2xl font-black text-[#10b981] mono">
-                ${(result.totalPortfolioValueUsd || 0).toLocaleString(undefined, {
+                $
+                {(
+                  result.totalPortfolioOpenseaFloorUsd ||
+                  result.totalPortfolioValueUsd ||
+                  0
+                ).toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
               </div>
-              <div className="text-xs text-gray-400 mt-1">
-                NFTs + $STONKBROKER + TBA Vaults
+              <div className="text-xs text-gray-400 mt-1 mono">
+                Best Offer: $
+                {(result.totalPortfolioBestOfferUsd || 0).toLocaleString(
+                  undefined,
+                  {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  }
+                )}
               </div>
             </div>
           </div>
@@ -477,50 +489,79 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                   </h3>
                 </div>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  Combined live USD valuation across StonkBrokers NFTs, Stonk Interns NFTs, and $STONKBROKER token holdings
+                  Live OpenSea Floor (ETH), OpenSea Best Offer (WETH), and $STONKBROKER token valuation
                 </p>
 
                 {/* Live Unit Reference Prices Strip */}
                 <div className="mt-2.5 flex items-center gap-2 flex-wrap text-[11px]">
-                  <span className="px-2.5 py-0.5 rounded-md bg-[#cfff04]/15 text-[#cfff04] border border-[#cfff04]/30 mono font-semibold">
-                    $STONKBROKER Price: ${(result.stonkPriceUsd || 0.003569).toFixed(6)}
-                  </span>
                   <span className="px-2.5 py-0.5 rounded-md bg-[#38bdf8]/15 text-[#38bdf8] border border-[#38bdf8]/30 mono font-semibold">
-                    StonkBroker NFT Backing: {(result.brokerUnitBackingStonk || 666666).toLocaleString()} $STONKBROKER ($
-                    {(result.brokerUnitPriceUsd || 666666 * result.stonkPriceUsd).toFixed(2)})
+                    Broker OpenSea: {(result.brokerOpenseaFloorEth || 1.44).toFixed(2)} ETH ($
+                    {(result.brokerOpenseaFloorUsd || 2541.05).toFixed(0)}) • Offer:{' '}
+                    {(result.brokerOpenseaBestOfferWeth || 1.16).toFixed(2)} WETH ($
+                    {(result.brokerOpenseaBestOfferUsd || 2046.96).toFixed(0)}) • Token: 666,666 $SB ($
+                    {(result.brokerUnitPriceUsd || 2341.33).toFixed(0)})
                   </span>
                   <span className="px-2.5 py-0.5 rounded-md bg-[#a855f7]/15 text-[#c084fc] border border-[#a855f7]/30 mono font-semibold">
-                    Intern NFT Value: $20 Mint + 999 $STONKBROKER + Tier Fee
+                    Intern OpenSea: {(result.internOpenseaFloorEth || 0.0377).toFixed(4)} ETH ($
+                    {(result.internOpenseaFloorUsd || 66.43).toFixed(2)}) • Best Offer:{' '}
+                    {(result.internOpenseaBestOfferWeth || 0.0257).toFixed(4)} WETH ($
+                    {(result.internOpenseaBestOfferUsd || 45.29).toFixed(2)})
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-md bg-[#cfff04]/15 text-[#cfff04] border border-[#cfff04]/30 mono font-semibold">
+                    $STONKBROKER: ${(result.stonkPriceUsd || 0.003512).toFixed(6)}
                   </span>
                 </div>
               </div>
 
-              <div className="bg-[#0c0f16] border border-[#263144] rounded-xl px-5 py-3 text-left lg:text-right flex-shrink-0">
+              <div className="bg-[#0c0f16] border border-[#263144] rounded-xl px-5 py-3 text-left lg:text-right flex-shrink-0 space-y-1">
                 <span className="text-[11px] text-gray-400 uppercase font-bold tracking-wider block">
-                  Total Portfolio Holdings USD
+                  Total Portfolio (OpenSea Floor)
                 </span>
-                <div className="text-2xl sm:text-3xl font-black text-[#cfff04] mono mt-0.5">
+                <div className="text-2xl sm:text-3xl font-black text-[#cfff04] mono">
                   $
-                  {(result.totalPortfolioValueUsd || 0).toLocaleString(undefined, {
+                  {(
+                    result.totalPortfolioOpenseaFloorUsd ||
+                    result.totalPortfolioValueUsd ||
+                    0
+                  ).toLocaleString(undefined, {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}{' '}
                   <span className="text-xs font-bold text-gray-400">USD</span>
                 </div>
-                <span className="text-[11px] text-gray-400 mono block mt-0.5">
-                  ≈{' '}
-                  {Math.round(
-                    (result.totalPortfolioValueUsd || 0) /
-                      (result.stonkPriceUsd || 0.003569)
-                  ).toLocaleString()}{' '}
-                  $STONKBROKER Equiv.
-                </span>
+                <div className="text-[11px] text-gray-300 mono flex flex-col lg:items-end gap-0.5">
+                  <span>
+                    Best Offer (WETH) Liq.:{' '}
+                    <strong className="text-[#38bdf8]">
+                      $
+                      {(result.totalPortfolioBestOfferUsd || 0).toLocaleString(
+                        undefined,
+                        {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }
+                      )}
+                    </strong>
+                  </span>
+                  <span>
+                    Token Backing (Brokers) + OS:{' '}
+                    <strong className="text-white">
+                      $
+                      {(
+                        result.totalPortfolioTokenBackingUsd || 0
+                      ).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </strong>
+                  </span>
+                </div>
               </div>
             </div>
 
             {/* 3-Column Asset Class Drilldown Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* Column 1: StonkBrokers NFTs Drilldown */}
+              {/* Column 1: StonkBrokers NFTs Drilldown (OpenSea Floor + Best Offer WETH + Token Value) */}
               <div className="bg-[#0d1017] border border-[#1f2735] rounded-xl p-4 flex flex-col justify-between space-y-3">
                 <div>
                   <div className="flex items-center justify-between border-b border-[#1c2330] pb-2.5">
@@ -540,36 +581,48 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                     <div className="text-right">
                       <div className="text-base font-extrabold text-white mono">
                         $
-                        {(result.totalBrokersValueUsd || 0).toLocaleString(undefined, {
+                        {(
+                          result.totalBrokersOpenseaFloorUsd ||
+                          result.totalBrokersValueUsd ||
+                          0
+                        ).toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
                       </div>
-                      <div className="text-[10px] text-gray-400 mono">
-                        {result.totalPortfolioValueUsd
-                          ? (
-                              ((result.totalBrokersValueUsd || 0) /
-                                result.totalPortfolioValueUsd) *
-                              100
-                            ).toFixed(1)
-                          : '0.0'}
-                        % of portfolio
+                      <div className="text-[10px] text-[#38bdf8] mono">
+                        Offer: $
+                        {(result.totalBrokersBestOfferUsd || 0).toLocaleString(
+                          undefined,
+                          {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          }
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  {/* Pricing Methodology */}
+                  {/* All 3 StonkBroker Prices: OpenSea Floor, Best Offer (WETH), and Token Value */}
                   <div className="mt-2.5 bg-[#131822] border border-[#1e2636] rounded-lg p-2.5 text-[11px] text-gray-300 space-y-1 font-mono">
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Anvil AMM Backing:</span>
-                      <span className="text-white font-semibold">
-                        666,666 $STONKBROKER (${(result.brokerUnitPriceUsd || 0).toFixed(2)})
+                      <span className="text-gray-400">OpenSea Floor Price:</span>
+                      <span className="text-white font-bold">
+                        {(result.brokerOpenseaFloorEth || 1.44).toFixed(2)} ETH ($
+                        {(result.brokerOpenseaFloorUsd || 2541.05).toFixed(2)})
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">AMM Replacement Buy:</span>
-                      <span className="text-[#38bdf8]">
-                        ${(result.brokerReplacementPriceUsd || 0).toFixed(2)} (incl. 0.133 ETH fee)
+                      <span className="text-gray-400">OpenSea Best Offer:</span>
+                      <span className="text-[#38bdf8] font-bold">
+                        {(result.brokerOpenseaBestOfferWeth || 1.16).toFixed(2)} WETH ($
+                        {(result.brokerOpenseaBestOfferUsd || 2046.96).toFixed(2)})
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Token Value (666,666):</span>
+                      <span className="text-[#cfff04] font-bold">
+                        ${(result.brokerUnitPriceUsd || 2341.33).toFixed(2)} USD
                       </span>
                     </div>
                   </div>
@@ -600,14 +653,18 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                               {b.isActivated ? `${b.tierName} (${b.multiplier})` : 'Inactive'}
                             </span>
                             <span className="block text-[10px] text-gray-400 mt-0.5">
-                              666,666 $STONKBROKER backing
-                              {b.isActivated && b.activationFeeStonk
-                                ? ` + ${b.activationFeeStonk.toLocaleString()} tier`
-                                : ''}
+                              Offer: {(b.openseaBestOfferWeth || result.brokerOpenseaBestOfferWeth || 1.16).toFixed(2)} WETH ($
+                              {(b.openseaBestOfferUsd || result.brokerOpenseaBestOfferUsd || 2046.96).toFixed(0)}) • Token: $
+                              {(b.baseBackingUsd || result.brokerUnitPriceUsd || 2341.33).toFixed(0)}
                             </span>
                           </div>
-                          <div className="text-right font-bold text-[#cfff04]">
-                            ${(b.estimatedNftValueUsd || result.brokerUnitPriceUsd || 0).toFixed(2)}
+                          <div className="text-right">
+                            <div className="font-bold text-white">
+                              {(b.openseaFloorEth || result.brokerOpenseaFloorEth || 1.44).toFixed(2)} ETH
+                            </div>
+                            <div className="text-[10px] text-[#cfff04] font-semibold">
+                              ${(b.openseaFloorUsd || result.brokerOpenseaFloorUsd || 2541.05).toFixed(2)}
+                            </div>
                           </div>
                         </div>
                       ))
@@ -615,19 +672,41 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-[#1c2330] flex justify-between text-xs font-mono">
-                  <span className="text-gray-400">Subtotal Brokers ({result.brokersCount}):</span>
-                  <span className="font-bold text-white">
-                    $
-                    {(result.totalBrokersValueUsd || 0).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
+                <div className="pt-2 border-t border-[#1c2330] space-y-1 text-xs font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">OpenSea Floor ({result.brokersCount}):</span>
+                    <span className="font-bold text-white">
+                      $
+                      {(result.totalBrokersOpenseaFloorUsd || 0).toLocaleString(
+                        undefined,
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-gray-400">Best Offer WETH ({result.brokersCount}):</span>
+                    <span className="font-semibold text-[#38bdf8]">
+                      $
+                      {(result.totalBrokersBestOfferUsd || 0).toLocaleString(
+                        undefined,
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-gray-400">Token Value ({result.brokersCount}):</span>
+                    <span className="font-semibold text-[#cfff04]">
+                      $
+                      {(result.totalBrokersTokenValueUsd || 0).toLocaleString(
+                        undefined,
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                      )}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Column 2: Stonk Interns NFTs Drilldown */}
+              {/* Column 2: Stonk Interns NFTs Drilldown (ONLY OpenSea Floor ETH & Best Offer WETH) */}
               <div className="bg-[#0d1017] border border-[#1f2735] rounded-xl p-4 flex flex-col justify-between space-y-3">
                 <div>
                   <div className="flex items-center justify-between border-b border-[#1c2330] pb-2.5">
@@ -640,43 +719,49 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                           2. Stonk Interns NFTs
                         </div>
                         <div className="text-[11px] text-gray-400">
-                          {result.internsCount} Held • {result.activatedInternsCount} Activated
+                          {result.internsCount} Held • OpenSea & WETH Offer
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="text-base font-extrabold text-white mono">
                         $
-                        {(result.totalInternsValueUsd || 0).toLocaleString(undefined, {
+                        {(
+                          result.totalInternsOpenseaFloorUsd ||
+                          result.totalInternsValueUsd ||
+                          0
+                        ).toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
                       </div>
-                      <div className="text-[10px] text-gray-400 mono">
-                        {result.totalPortfolioValueUsd
-                          ? (
-                              ((result.totalInternsValueUsd || 0) /
-                                result.totalPortfolioValueUsd) *
-                              100
-                            ).toFixed(1)
-                          : '0.0'}
-                        % of portfolio
+                      <div className="text-[10px] text-[#38bdf8] mono">
+                        Offer: $
+                        {(result.totalInternsBestOfferUsd || 0).toLocaleString(
+                          undefined,
+                          {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          }
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  {/* Pricing Methodology */}
+                  {/* OpenSea Floor & Best Offer WETH Pricing (No Mint or Token Price) */}
                   <div className="mt-2.5 bg-[#131822] border border-[#1e2636] rounded-lg p-2.5 text-[11px] text-gray-300 space-y-1 font-mono">
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Freshman (1.00x) Value:</span>
-                      <span className="text-white font-semibold">
-                        $20 + 4,332 $SB = ${(20 + 4332 * result.stonkPriceUsd).toFixed(2)}
+                      <span className="text-gray-400">OpenSea Floor Price:</span>
+                      <span className="text-white font-bold">
+                        {(result.internOpenseaFloorEth || 0.0377).toFixed(4)} ETH ($
+                        {(result.internOpenseaFloorUsd || 66.43).toFixed(2)})
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Senior (2.00x) Value:</span>
-                      <span className="text-[#cfff04] font-semibold">
-                        $20 + 34,332 $SB = ${(20 + 34332 * result.stonkPriceUsd).toFixed(2)}
+                      <span className="text-gray-400">OpenSea Best Offer:</span>
+                      <span className="text-[#38bdf8] font-bold">
+                        {(result.internOpenseaBestOfferWeth || 0.0257).toFixed(4)} WETH ($
+                        {(result.internOpenseaBestOfferUsd || 45.29).toFixed(2)})
                       </span>
                     </div>
                   </div>
@@ -706,17 +791,39 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                             >
                               {inr.tierName} ({inr.activationMultiplier})
                             </span>
-                            <span className="block text-[10px] text-gray-400 mt-0.5">
-                              $20 mint +{' '}
+                            <span className="block text-[10px] text-[#38bdf8] mt-0.5">
+                              Best Offer:{' '}
                               {(
-                                (inr.baseMintStonk || 999) +
-                                (inr.activationFeeStonk || 3333)
-                              ).toLocaleString()}{' '}
-                              $STONKBROKER
+                                inr.openseaBestOfferWeth ||
+                                result.internOpenseaBestOfferWeth ||
+                                0.0257
+                              ).toFixed(4)}{' '}
+                              WETH ($
+                              {(
+                                inr.openseaBestOfferUsd ||
+                                result.internOpenseaBestOfferUsd ||
+                                45.29
+                              ).toFixed(2)}
+                              )
                             </span>
                           </div>
-                          <div className="text-right font-bold text-[#c084fc]">
-                            ${(inr.estimatedNftValueUsd || 35.47).toFixed(2)}
+                          <div className="text-right">
+                            <div className="font-bold text-white">
+                              {(
+                                inr.openseaFloorEth ||
+                                result.internOpenseaFloorEth ||
+                                0.0377
+                              ).toFixed(4)}{' '}
+                              ETH
+                            </div>
+                            <div className="text-[10px] text-[#c084fc] font-semibold">
+                              $
+                              {(
+                                inr.openseaFloorUsd ||
+                                result.internOpenseaFloorUsd ||
+                                66.43
+                              ).toFixed(2)}
+                            </div>
                           </div>
                         </div>
                       ))
@@ -724,15 +831,33 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-[#1c2330] flex justify-between text-xs font-mono">
-                  <span className="text-gray-400">Subtotal Interns ({result.internsCount}):</span>
-                  <span className="font-bold text-white">
-                    $
-                    {(result.totalInternsValueUsd || 0).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
+                <div className="pt-2 border-t border-[#1c2330] space-y-1 text-xs font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">
+                      OpenSea Floor ({result.internsCount}):
+                    </span>
+                    <span className="font-bold text-white">
+                      {(
+                        (result.internOpenseaFloorEth || 0.0377) *
+                        result.internsCount
+                      ).toFixed(4)}{' '}
+                      ETH ($
+                      {(result.totalInternsOpenseaFloorUsd || 0).toFixed(2)})
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-gray-400">
+                      Best Offer WETH ({result.internsCount}):
+                    </span>
+                    <span className="font-semibold text-[#38bdf8]">
+                      {(
+                        (result.internOpenseaBestOfferWeth || 0.0257) *
+                        result.internsCount
+                      ).toFixed(4)}{' '}
+                      WETH ($
+                      {(result.totalInternsBestOfferUsd || 0).toFixed(2)})
+                    </span>
+                  </div>
                 </div>
               </div>
 

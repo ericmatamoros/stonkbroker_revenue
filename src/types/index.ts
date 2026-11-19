@@ -164,6 +164,10 @@ export interface BrokerNFTItem {
   activationFeeUsd?: number;
   ammBuyEthFee?: number;
   estimatedNftValueUsd?: number;
+  openseaFloorEth?: number;
+  openseaFloorUsd?: number;
+  openseaBestOfferWeth?: number;
+  openseaBestOfferUsd?: number;
 }
 
 export interface PendingCreditItem {
@@ -193,10 +197,10 @@ export interface InternNFTItem {
   pendingCredits: PendingCreditItem[];
   dependentCredits: PendingCreditItem[];
   pendingTotalUsd: number;
-  baseMintEthUsd?: number;
-  baseMintStonk?: number;
-  activationFeeStonk?: number;
-  activationFeeUsd?: number;
+  openseaFloorEth?: number;
+  openseaFloorUsd?: number;
+  openseaBestOfferWeth?: number;
+  openseaBestOfferUsd?: number;
   estimatedNftValueUsd?: number;
 }
 
@@ -294,15 +298,33 @@ export interface WalletInspectionResult {
   tbaStonkBalance?: number;
   tbaStonkUsd?: number;
   tbaOtherAssetsUsd?: number;
+  // StonkBrokers: Token Value + OpenSea Floor + OpenSea Best Offer (WETH)
   brokerUnitBackingStonk?: number;
   brokerUnitPriceUsd?: number;
   brokerReplacementPriceUsd?: number;
+  brokerOpenseaFloorEth?: number;
+  brokerOpenseaFloorUsd?: number;
+  brokerOpenseaBestOfferWeth?: number;
+  brokerOpenseaBestOfferUsd?: number;
   totalBrokersValueUsd?: number;
-  internBaseFloorUsd?: number;
+  totalBrokersOpenseaFloorUsd?: number;
+  totalBrokersBestOfferUsd?: number;
+  totalBrokersTokenValueUsd?: number;
+  // Stonk Interns: ONLY OpenSea Floor (ETH) & Best Offer (WETH)
+  internOpenseaFloorEth?: number;
+  internOpenseaFloorUsd?: number;
+  internOpenseaBestOfferWeth?: number;
+  internOpenseaBestOfferUsd?: number;
   totalInternsValueUsd?: number;
+  totalInternsOpenseaFloorUsd?: number;
+  totalInternsBestOfferUsd?: number;
+  // Combined Portfolio Totals
   totalStonkTokensHeld?: number;
   totalStonkTokensUsd?: number;
   totalPortfolioValueUsd?: number;
+  totalPortfolioOpenseaFloorUsd?: number;
+  totalPortfolioBestOfferUsd?: number;
+  totalPortfolioTokenBackingUsd?: number;
   projections: RevenueProjections;
   history30d?: WalletAccrualDay[];
   cachedAt: string;

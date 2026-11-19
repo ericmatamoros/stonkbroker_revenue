@@ -643,13 +643,85 @@ export async function fetchTokenDeliveries(): Promise<TokenDeliveryTotal[]> {
 // 4. WALLET INSPECTION, ACTIVATION & REVENUE PROJECTION
 // ----------------------------------------------------------------------
 
+// Helper to pull live OpenSea collection Floor Price (ETH/USD) and Best Offer (WETH/USD)
+async function fetchOpenSeaCollectionPricing(
+  slug: string,
+  fallbackFloorEth: number,
+  fallbackOfferWeth: number,
+  ethUsd = 1765
+): Promise<{
+  floorEth: number;
+  floorUsd: number;
+  bestOfferWeth: number;
+  bestOfferUsd: number;
+}> {
+  try {
+    const res = await fetch(`https://opensea.io/collection/${slug}`, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+        Accept:
+          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error(`OpenSea HTTP ${res.status}`);
+    const html = await res.text();
+
+    let floorEth = fallbackFloorEth;
+    let floorUsd = fallbackFloorEth * ethUsd;
+    const fpMatch = html.match(
+      /"floorPrice":\{"pricePerItem":\{"token":\{"unit":([0-9.]+),"symbol":"([^"]+)"[^}]*\}[^{]*\},"__typename":"Price","usd":([0-9.]+)\}/
+    );
+    if (fpMatch) {
+      floorEth = parseFloat(fpMatch[1]);
+      floorUsd = parseFloat(fpMatch[3]);
+    } else {
+      const fpAlt = html.match(
+        /"floorPrice":\{"pricePerItem":\{[^}]*"unit":([0-9.]+)/
+      );
+      if (fpAlt) {
+        floorEth = parseFloat(fpAlt[1]);
+        floorUsd = floorEth * ethUsd;
+      }
+    }
+
+    let bestOfferWeth = fallbackOfferWeth;
+    let bestOfferUsd = fallbackOfferWeth * ethUsd;
+    const toMatch = html.match(
+      /"topOffer":\{"pricePerItem":\{"usd":([0-9.]+),"token":\{"unit":([0-9.]+),"symbol":"([^"]+)"/
+    );
+    if (toMatch) {
+      bestOfferUsd = parseFloat(toMatch[1]);
+      bestOfferWeth = parseFloat(toMatch[2]);
+    } else {
+      const boMatch = html.match(
+        /"bestOffer":\{"pricePerItem":\{"usd":([0-9.]+),"token":\{"unit":([0-9.]+),"symbol":"([^"]+)"/
+      );
+      if (boMatch) {
+        bestOfferUsd = parseFloat(boMatch[1]);
+        bestOfferWeth = parseFloat(boMatch[2]);
+      }
+    }
+
+    return { floorEth, floorUsd, bestOfferWeth, bestOfferUsd };
+  } catch {
+    return {
+      floorEth: fallbackFloorEth,
+      floorUsd: fallbackFloorEth * ethUsd,
+      bestOfferWeth: fallbackOfferWeth,
+      bestOfferUsd: fallbackOfferWeth * ethUsd,
+    };
+  }
+}
+
 export async function inspectWallet(
   walletAddress: string,
   _forceRefresh = false
 ): Promise<WalletInspectionResult> {
   const normalized = walletAddress.trim().toLowerCase();
 
-  // 1. Always fetch live StonkBrokers & Interns holdings, direct wallet token balance, and market data
+  // 1. Always fetch live StonkBrokers & Interns holdings, direct wallet token balance, market data, and OpenSea prices
   const paddedWallet = normalized.replace(/^0x/, '').padStart(64, '0');
   const [
     internOwnedRes,
@@ -663,6 +735,8 @@ export async function inspectWallet(
     marketRes,
     walletStonkHex,
     walletEthHex,
+    brokerOsPricing,
+    internOsPricing,
   ] = await Promise.all([
     fetch(
       `${API_BASE}/api/nftfi/intern-owned?wallet=${normalized}&menu=${CONTRACTS.stonkBrokerToken}&brokerEngine=${CONTRACTS.brokerClockIn}&brokerMenu=${CONTRACTS.stonkBrokerToken}`,
@@ -708,6 +782,8 @@ export async function inspectWallet(
       .catch(() => null),
     ethCall(CONTRACTS.stonkBrokerToken, '0x70a08231' + paddedWallet),
     callRpc('eth_getBalance', [normalized, 'latest']),
+    fetchOpenSeaCollectionPricing('stonkbrokers-434284142', 1.44, 1.16),
+    fetchOpenSeaCollectionPricing('interns', 0.0377, 0.0257),
   ]);
 
   // Fallback to cache only if both live holdings endpoints failed completely
@@ -749,7 +825,10 @@ export async function inspectWallet(
     ? Number(analyticsRes.activation.totalActiveWeight)
     : 20949200;
 
-  const ethPriceUsd = rewardsRes?.ethUsd || 2486;
+  const ethPriceUsd =
+    brokerOsPricing.floorEth > 0
+      ? brokerOsPricing.floorUsd / brokerOsPricing.floorEth
+      : rewardsRes?.ethUsd || 1765;
   const w24h = rewardsRes?.windows?.find((w: any) => w.key === '24h');
 
   // Build price lookup and symbol mapping
@@ -781,9 +860,9 @@ export async function inspectWallet(
     priceMap['$STONKBROKER'] ||
     priceMap['STONKBROKER'] ||
     priceMap[CONTRACTS.stonkBrokerToken.toLowerCase()] ||
-    0.003569;
+    0.003512;
 
-  // Market AMM parameters for StonkBrokers NFT backing
+  // Market AMM parameters for StonkBrokers NFT token backing
   const ammSnap = marketRes?.snapshot?.amm;
   const brokerUnitBackingStonk = ammSnap?.tokensPerNFT
     ? Number(BigInt(ammSnap.tokensPerNFT)) / 1e18
@@ -795,6 +874,18 @@ export async function inspectWallet(
   const brokerUnitPriceUsd = brokerUnitBackingStonk * stonkPriceUsd;
   const brokerReplacementPriceUsd =
     brokerUnitPriceUsd + ammRandomEthFee * ethPriceUsd;
+
+  // OpenSea pricing for StonkBrokers (Floor ETH + Best Offer WETH)
+  const brokerOpenseaFloorEth = brokerOsPricing.floorEth;
+  const brokerOpenseaFloorUsd = brokerOsPricing.floorUsd;
+  const brokerOpenseaBestOfferWeth = brokerOsPricing.bestOfferWeth;
+  const brokerOpenseaBestOfferUsd = brokerOsPricing.bestOfferUsd;
+
+  // OpenSea pricing for Stonk Interns (ONLY OpenSea Floor ETH & Best Offer WETH)
+  const internOpenseaFloorEth = internOsPricing.floorEth;
+  const internOpenseaFloorUsd = internOsPricing.floorUsd;
+  const internOpenseaBestOfferWeth = internOsPricing.bestOfferWeth;
+  const internOpenseaBestOfferUsd = internOsPricing.bestOfferUsd;
 
   // Tier multiplier & fee config for Interns
   const INTERN_TIER_CONFIG: Record<
@@ -808,7 +899,7 @@ export async function inspectWallet(
     Alumnus: { multBps: 33300, multiplier: '3.33x', mult: 3.33, feeStonk: 83333 },
   };
 
-  // 2. Fetch StonkBrokers metadata, activation, and NFT valuation
+  // 2. Fetch StonkBrokers metadata, activation, and NFT valuation (Token Backing + OpenSea Floor + Best Offer WETH)
   const brokers: BrokerNFTItem[] = [];
   let totalActiveBrokerWeight = 0;
   let activatedBrokersCount = 0;
@@ -823,7 +914,6 @@ export async function inspectWallet(
         : deriveDeterministicTBA(CONTRACTS.stonkBrokersCollection, id);
 
     if (!indexed) {
-      // Fallback onchain activationOf check
       try {
         const hexId = BigInt(id).toString(16).padStart(64, '0');
         const resHex = await ethCall(CONTRACTS.activationManager, '0x6ca3bb3b' + hexId);
@@ -837,7 +927,6 @@ export async function inspectWallet(
         // fallback
       }
 
-      // Fetch metadata to get real ERC-6551 TBA vault
       try {
         const metaRes = await fetch(
           `${API_BASE}/api/desks/nft-meta/${CONTRACTS.stonkBrokersCollection}/${id}`,
@@ -866,7 +955,6 @@ export async function inspectWallet(
 
     const activationFeeStonk = isActivated ? tierInfo.feeStonk : 0;
     const activationFeeUsd = activationFeeStonk * stonkPriceUsd;
-    const estimatedNftValueUsd = brokerUnitPriceUsd + activationFeeUsd;
 
     brokers.push({
       tokenId: id,
@@ -885,11 +973,15 @@ export async function inspectWallet(
       activationFeeStonk,
       activationFeeUsd,
       ammBuyEthFee: ammRandomEthFee,
-      estimatedNftValueUsd,
+      openseaFloorEth: brokerOpenseaFloorEth,
+      openseaFloorUsd: brokerOpenseaFloorUsd,
+      openseaBestOfferWeth: brokerOpenseaBestOfferWeth,
+      openseaBestOfferUsd: brokerOpenseaBestOfferUsd,
+      estimatedNftValueUsd: brokerOpenseaFloorUsd,
     });
   }
 
-  // 3. Process Interns: Merge data from intern-owned endpoint and nft-meta
+  // 3. Process Interns: Merge data from intern-owned endpoint and nft-meta (valued ONLY via OpenSea Floor & Best Offer WETH)
   const interns: InternNFTItem[] = [];
   let activatedInternsCount = 0;
   let totalActiveInternWeight = 0;
@@ -901,7 +993,6 @@ export async function inspectWallet(
     }
   }
 
-  // Prefer live ownedMap keys when available so sold interns are never retained
   const targetInternIds =
     ownedMap.size > 0 ? Array.from(ownedMap.keys()) : internIds;
 
@@ -945,7 +1036,6 @@ export async function inspectWallet(
       const pBroker = findAttr('Parent Broker');
       if (pBroker) parentBrokerId = pBroker;
     } else {
-      // Fallback to nft-meta
       try {
         const metaRes = await fetch(
           `${API_BASE}/api/desks/nft-meta/${CONTRACTS.stonkInternsCollection}/${id}`,
@@ -1035,14 +1125,6 @@ export async function inspectWallet(
       0
     );
 
-    // Intern NFT Valuation: Base Mint ($20 ETH leg + 999 $STONKBROKER) + Activation Tier Fee in $STONKBROKER
-    const baseMintEthUsd = 20.0;
-    const baseMintStonk = 999;
-    const activationFeeStonk = isActivated ? tierConf.feeStonk : 0;
-    const activationFeeUsd = activationFeeStonk * stonkPriceUsd;
-    const estimatedNftValueUsd =
-      baseMintEthUsd + (baseMintStonk + activationFeeStonk) * stonkPriceUsd;
-
     interns.push({
       tokenId: id,
       parentBrokerId,
@@ -1062,11 +1144,11 @@ export async function inspectWallet(
       pendingCredits,
       dependentCredits,
       pendingTotalUsd,
-      baseMintEthUsd,
-      baseMintStonk,
-      activationFeeStonk,
-      activationFeeUsd,
-      estimatedNftValueUsd,
+      openseaFloorEth: internOpenseaFloorEth,
+      openseaFloorUsd: internOpenseaFloorUsd,
+      openseaBestOfferWeth: internOpenseaBestOfferWeth,
+      openseaBestOfferUsd: internOpenseaBestOfferUsd,
+      estimatedNftValueUsd: internOpenseaFloorUsd,
     });
   }
 
@@ -1115,7 +1197,6 @@ export async function inspectWallet(
     const items: TbaBalanceItem[] = [];
     let totalUsd = 0;
 
-    // Parse ERC20 tokens
     if (walletBal.tokens) {
       for (const [tokenAddr, rawAmount] of Object.entries(walletBal.tokens)) {
         if (rawAmount && rawAmount !== '0') {
@@ -1154,7 +1235,6 @@ export async function inspectWallet(
       }
     }
 
-    // Parse native ETH
     if (walletBal.eth && walletBal.eth !== '0') {
       const ethFormatted = Number(BigInt(walletBal.eth)) / 1e18;
       if (ethFormatted > 0.00001) {
@@ -1171,19 +1251,16 @@ export async function inspectWallet(
       }
     }
 
-    // Sort descending by USD value
     items.sort((a, b) => b.usdValue - a.usdValue);
     return { items, totalUsd };
   };
 
-  // Populate balances on brokers
   for (const broker of brokers) {
     const { items, totalUsd } = parseTbaBalances(broker.tbaAddress);
     broker.tbaBalances = items;
     broker.tbaTotalUsd = totalUsd;
   }
 
-  // Populate balances on interns
   for (const intern of interns) {
     const { items, totalUsd } = parseTbaBalances(intern.tbaAddress);
     intern.tbaBalances = items;
@@ -1224,15 +1301,12 @@ export async function inspectWallet(
   const brokerShareRatio =
     networkTotalWeight > 0 ? totalActiveBrokerWeight / networkTotalWeight : 0;
 
-  // Stream A: Owned active brokers
   const brokerDailyUsd24h = brokerShareRatio * w24hBrokerUsd;
   const brokerDailyUsd7d = brokerShareRatio * w7dBrokerDailyUsd;
 
-  // Stream B: Intern base share
   const internBaseDailyUsd24h = w24hInternUsd * internShareRatio;
   const internBaseDailyUsd7d = w7dInternDailyUsd * internShareRatio;
 
-  // Stream C: Active parent broker slice
   let parentSliceDailyUsd24h = 0;
   let parentSliceDailyUsd7d = 0;
   for (const intern of interns) {
@@ -1245,7 +1319,6 @@ export async function inspectWallet(
     }
   }
 
-  // 30-day historical averages from the wallet ledger (filtering one-time protocol pool seed spikes > $25)
   const operatingDays = history30d.filter((d) => d.dailyAccruedUsd < 25);
   const daysForAvg = operatingDays.length > 0 ? operatingDays : history30d;
   const avg30dBaseUsd =
@@ -1264,7 +1337,6 @@ export async function inspectWallet(
     internBaseDailyUsd7d + parentSliceDailyUsd7d + brokerDailyUsd7d;
   const dailyUsd30d = avg30dBaseUsd + avg30dParentUsd + avg30dBrokerUsd;
 
-  // Default baseline projection: Today's live 24h drop run-rate
   const dailyUsd = Number(dailyUsd24h.toFixed(2));
   const dailyEth = dailyUsd / ethPriceUsd;
   const dailyStonk = dailyUsd / stonkPriceUsd;
@@ -1379,7 +1451,6 @@ export async function inspectWallet(
     brokers.reduce((acc, b) => acc + b.tbaTotalUsd, 0) +
     interns.reduce((acc, i) => acc + i.tbaTotalUsd, 0);
 
-  // Sum $STONKBROKER tokens held inside all Broker & Intern ERC-6551 TBA vaults
   let tbaStonkBalance = 0;
   for (const b of brokers) {
     for (const bal of b.tbaBalances) {
@@ -1418,28 +1489,47 @@ export async function inspectWallet(
     );
   }, 0);
 
-  // Portfolio Holdings Valuation Breakdown
+  // Portfolio Holdings Valuation Breakdown:
+  // - StonkBrokers: OpenSea Floor (ETH/USD), OpenSea Best Offer (WETH/USD), AND Token Value (666,666 $STONKBROKER)
+  // - Stonk Interns: ONLY OpenSea Floor (ETH/USD) and OpenSea Best Offer (WETH/USD)
   const walletStonkUsd = walletStonkBalance * stonkPriceUsd;
   const walletEthUsd = walletEthBalance * ethPriceUsd;
-  const totalBrokersValueUsd = brokers.reduce(
-    (acc, b) => acc + (b.estimatedNftValueUsd || brokerUnitPriceUsd),
-    0
-  );
-  const internBaseFloorUsd = 20.0 + 999 * stonkPriceUsd;
-  const totalInternsValueUsd = interns.reduce(
-    (acc, i) => acc + (i.estimatedNftValueUsd || internBaseFloorUsd),
-    0
-  );
+
+  const totalBrokersOpenseaFloorUsd = brokers.length * brokerOpenseaFloorUsd;
+  const totalBrokersBestOfferUsd = brokers.length * brokerOpenseaBestOfferUsd;
+  const totalBrokersTokenValueUsd = brokers.length * brokerUnitPriceUsd;
+  const totalBrokersValueUsd = totalBrokersOpenseaFloorUsd;
+
+  const totalInternsOpenseaFloorUsd = interns.length * internOpenseaFloorUsd;
+  const totalInternsBestOfferUsd = interns.length * internOpenseaBestOfferUsd;
+  const totalInternsValueUsd = totalInternsOpenseaFloorUsd;
+
   const totalStonkTokensHeld =
     walletStonkBalance + tbaStonkBalance + totalPendingStonk;
   const totalStonkTokensUsd = totalStonkTokensHeld * stonkPriceUsd;
-  const totalPortfolioValueUsd =
-    totalBrokersValueUsd +
-    totalInternsValueUsd +
+
+  const liquidTokensAndVaultsUsd =
     walletStonkUsd +
     walletEthUsd +
     totalTbaPortfolioUsd +
     totalPendingPayoutsUsd;
+
+  const totalPortfolioOpenseaFloorUsd =
+    totalBrokersOpenseaFloorUsd +
+    totalInternsOpenseaFloorUsd +
+    liquidTokensAndVaultsUsd;
+
+  const totalPortfolioBestOfferUsd =
+    totalBrokersBestOfferUsd +
+    totalInternsBestOfferUsd +
+    liquidTokensAndVaultsUsd;
+
+  const totalPortfolioTokenBackingUsd =
+    totalBrokersTokenValueUsd +
+    totalInternsOpenseaFloorUsd +
+    liquidTokensAndVaultsUsd;
+
+  const totalPortfolioValueUsd = totalPortfolioOpenseaFloorUsd;
 
   const result: WalletInspectionResult = {
     walletAddress: normalized,
@@ -1469,19 +1559,33 @@ export async function inspectWallet(
     brokerUnitBackingStonk,
     brokerUnitPriceUsd,
     brokerReplacementPriceUsd,
+    brokerOpenseaFloorEth,
+    brokerOpenseaFloorUsd,
+    brokerOpenseaBestOfferWeth,
+    brokerOpenseaBestOfferUsd,
     totalBrokersValueUsd,
-    internBaseFloorUsd,
+    totalBrokersOpenseaFloorUsd,
+    totalBrokersBestOfferUsd,
+    totalBrokersTokenValueUsd,
+    internOpenseaFloorEth,
+    internOpenseaFloorUsd,
+    internOpenseaBestOfferWeth,
+    internOpenseaBestOfferUsd,
     totalInternsValueUsd,
+    totalInternsOpenseaFloorUsd,
+    totalInternsBestOfferUsd,
     totalStonkTokensHeld,
     totalStonkTokensUsd,
     totalPortfolioValueUsd,
+    totalPortfolioOpenseaFloorUsd,
+    totalPortfolioBestOfferUsd,
+    totalPortfolioTokenBackingUsd,
     projections,
     history30d,
     cachedAt: new Date().toISOString(),
     fromCache: false,
   };
 
-  // Cache to Supabase in background
   cacheWalletInspection(result).catch(() => {});
 
   return result;
