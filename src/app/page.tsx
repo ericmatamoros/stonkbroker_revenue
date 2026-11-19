@@ -10,6 +10,7 @@ import {
   TierActivationBreakdown,
   TierEvolutionDay,
   WeekOverWeekItem,
+  StonkTokenStats,
 } from '@/types';
 import { Sidebar } from '@/components/Sidebar';
 import { Navbar } from '@/components/Navbar';
@@ -17,6 +18,7 @@ import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { PotOverview } from '@/components/PotOverview';
 import { DistributionsLedger } from '@/components/DistributionsLedger';
 import { WalletInspector } from '@/components/WalletInspector';
+import { StonkTokenView } from '@/components/StonkTokenView';
 import { DocumentationView } from '@/components/DocumentationView';
 import { SupabaseModal } from '@/components/SupabaseModal';
 import { getSupabaseConfig } from '@/lib/supabase';
@@ -31,10 +33,12 @@ export default function DashboardPage() {
   const [evolution, setEvolution] = useState<TierEvolutionDay[] | undefined>(undefined);
   const [wowGrowth, setWowGrowth] = useState<WeekOverWeekItem[] | undefined>(undefined);
   const [tokens, setTokens] = useState<TokenDeliveryTotal[]>([]);
+  const [tokenStats, setTokenStats] = useState<StonkTokenStats | null>(null);
   const [targetWallet, setTargetWallet] = useState<string>('0x6e659392a047b21e0b91bd5da1e4fda9ac8f7e12');
 
   const [loadingPot, setLoadingPot] = useState<boolean>(true);
   const [loadingDistributions, setLoadingDistributions] = useState<boolean>(true);
+  const [loadingTokenStats, setLoadingTokenStats] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState<boolean>(false);
@@ -52,6 +56,22 @@ export default function DashboardPage() {
       console.error('Failed to load pot data:', err);
     } finally {
       setLoadingPot(false);
+    }
+  }, []);
+
+  // Load $STONKBROKER Token Statistics (called when $STONKBROKER tab is opened & every 5m while open)
+  const loadTokenStats = useCallback(async () => {
+    setLoadingTokenStats(true);
+    try {
+      const res = await fetch('/api/stonk-token');
+      const json = await res.json();
+      if (json.ok && json.data) {
+        setTokenStats(json.data);
+      }
+    } catch (err) {
+      console.error('Failed to load $STONKBROKER token stats:', err);
+    } finally {
+      setLoadingTokenStats(false);
     }
   }, []);
 
@@ -100,10 +120,21 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [loadPot, loadDistributions]);
 
+  // Pull $STONKBROKER stats when the $STONKBROKER tab is opened
+  useEffect(() => {
+    if (activeTab === 'token') {
+      loadTokenStats();
+    }
+  }, [activeTab, loadTokenStats]);
+
   // Refresh All Action
   const handleRefreshAll = async () => {
     setIsRefreshing(true);
-    await Promise.all([loadPot(), loadDistributions()]);
+    const tasks: Promise<any>[] = [loadPot(), loadDistributions()];
+    if (activeTab === 'token') {
+      tasks.push(loadTokenStats());
+    }
+    await Promise.all(tasks);
     setIsRefreshing(false);
   };
 
@@ -126,6 +157,7 @@ export default function DashboardPage() {
   };
 
   const ethPrice = potData?.ethPriceUsd || 2486;
+  const stonkSpotPrice = tokenStats?.priceUsd || 0.00357;
 
   return (
     <div className="min-h-screen bg-[#0c0e12] text-[#e2e8f0] relative">
@@ -134,7 +166,7 @@ export default function DashboardPage() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         ethPrice={ethPrice}
-        stonkPrice={0.00496}
+        stonkPrice={stonkSpotPrice}
         isOpenMobile={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         isSupabaseConnected={isSupabaseConnected}
@@ -148,7 +180,7 @@ export default function DashboardPage() {
         {/* Navigation Top Header */}
         <Navbar
           ethPrice={ethPrice}
-          stonkPrice={0.00496}
+          stonkPrice={stonkSpotPrice}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           onOpenSupabase={() => setIsSupabaseModalOpen(true)}
@@ -181,6 +213,14 @@ export default function DashboardPage() {
             <WalletInspector
               initialAddress={targetWallet}
               onInspectWallet={handleInspectWallet}
+            />
+          )}
+
+          {activeTab === 'token' && (
+            <StonkTokenView
+              stats={tokenStats}
+              loading={loadingTokenStats}
+              onRefresh={loadTokenStats}
             />
           )}
 

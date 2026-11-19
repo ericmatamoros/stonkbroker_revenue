@@ -13,6 +13,7 @@ import {
   X,
   TrendingUp,
   Cpu,
+  Coins,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -32,7 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
   ethPrice,
-  stonkPrice = 0.00496,
+  stonkPrice = 0.00357,
   isOpenMobile,
   onCloseMobile,
   isSupabaseConnected,
@@ -51,9 +52,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       id: 'wallet',
       label: 'Wallet Inspector',
-      subtitle: 'Interns, Shares & Projections',
+      subtitle: 'Holdings, Interns & Projections',
       icon: UserCheck,
       badge: 'PRO',
+    },
+    {
+      id: 'token',
+      label: '$STONKBROKER',
+      subtitle: 'Price Chart, Supply & Burn',
+      icon: Coins,
+      badge: '5M',
     },
     {
       id: 'distributions',

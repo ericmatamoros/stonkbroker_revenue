@@ -36,6 +36,7 @@ import {
   Calculator,
   MousePointer,
   ArrowRight,
+  Layers,
 } from 'lucide-react';
 
 interface WalletInspectorProps {
@@ -315,17 +316,25 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
               onClick={() => {
                 const sample = '0x6e659392a047b21e0b91bd5da1e4fda9ac8f7e12';
                 setAddressInput(sample);
-                executeSearch(sample);
+                executeSearch(sample, true);
               }}
               className="px-2.5 py-1 rounded bg-[#1c222e] hover:bg-[#252e3e] text-[#cfff04] mono border border-[#cfff04]/30 transition text-[11px] font-semibold"
             >
-              My Wallet (15 Interns)
+              {result &&
+              result.walletAddress.toLowerCase() ===
+                '0x6e659392a047b21e0b91bd5da1e4fda9ac8f7e12'
+                ? `My Wallet (${
+                    result.brokersCount > 0
+                      ? `${result.brokersCount} Broker${result.brokersCount > 1 ? 's' : ''} • `
+                      : ''
+                  }${result.internsCount} Intern${result.internsCount !== 1 ? 's' : ''})`
+                : 'My Wallet (Live)'}
             </button>
             <button
               onClick={() => {
                 const sample = '0x9c0c1c4c50657e8f5e04c0bfb6d653b724e83048';
                 setAddressInput(sample);
-                executeSearch(sample);
+                executeSearch(sample, true);
               }}
               className="px-2 py-1 rounded bg-[#1c222e] hover:bg-[#252e3e] text-gray-300 mono border border-[#2b3648] transition text-[11px]"
             >
@@ -442,14 +451,445 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
 
             <div className="bg-[#13171f] border border-[#242b38] rounded-xl p-4">
               <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
-                <span>TBA Vault Assets</span>
+                <span>Total Holdings Value</span>
                 <Coins className="w-4 h-4 text-[#10b981]" />
               </div>
               <div className="text-2xl font-black text-[#10b981] mono">
-                ${result.totalTbaPortfolioUsd.toFixed(2)}
+                ${(result.totalPortfolioValueUsd || 0).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </div>
               <div className="text-xs text-gray-400 mt-1">
-                Holding stock tokens & $STONKBROKER
+                NFTs + $STONKBROKER + TBA Vaults
+              </div>
+            </div>
+          </div>
+
+          {/* Total Wallet Holdings Valuation & Drilldown (StonkBrokers, Stonk Interns & $STONKBROKER) */}
+          <div className="bg-gradient-to-br from-[#141923] via-[#12161f] to-[#0e1219] border border-[#283246] rounded-2xl p-6 space-y-5 shadow-xl">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#202838] pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-[#cfff04]" />
+                  <h3 className="text-lg font-bold text-white">
+                    Portfolio Holdings Valuation & Asset Drilldown
+                  </h3>
+                </div>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Combined live USD valuation across StonkBrokers NFTs, Stonk Interns NFTs, and $STONKBROKER token holdings
+                </p>
+
+                {/* Live Unit Reference Prices Strip */}
+                <div className="mt-2.5 flex items-center gap-2 flex-wrap text-[11px]">
+                  <span className="px-2.5 py-0.5 rounded-md bg-[#cfff04]/15 text-[#cfff04] border border-[#cfff04]/30 mono font-semibold">
+                    $STONKBROKER Price: ${(result.stonkPriceUsd || 0.003569).toFixed(6)}
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-md bg-[#38bdf8]/15 text-[#38bdf8] border border-[#38bdf8]/30 mono font-semibold">
+                    StonkBroker NFT Backing: {(result.brokerUnitBackingStonk || 666666).toLocaleString()} $STONKBROKER ($
+                    {(result.brokerUnitPriceUsd || 666666 * result.stonkPriceUsd).toFixed(2)})
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-md bg-[#a855f7]/15 text-[#c084fc] border border-[#a855f7]/30 mono font-semibold">
+                    Intern NFT Value: $20 Mint + 999 $STONKBROKER + Tier Fee
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-[#0c0f16] border border-[#263144] rounded-xl px-5 py-3 text-left lg:text-right flex-shrink-0">
+                <span className="text-[11px] text-gray-400 uppercase font-bold tracking-wider block">
+                  Total Portfolio Holdings USD
+                </span>
+                <div className="text-2xl sm:text-3xl font-black text-[#cfff04] mono mt-0.5">
+                  $
+                  {(result.totalPortfolioValueUsd || 0).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{' '}
+                  <span className="text-xs font-bold text-gray-400">USD</span>
+                </div>
+                <span className="text-[11px] text-gray-400 mono block mt-0.5">
+                  ≈{' '}
+                  {Math.round(
+                    (result.totalPortfolioValueUsd || 0) /
+                      (result.stonkPriceUsd || 0.003569)
+                  ).toLocaleString()}{' '}
+                  $STONKBROKER Equiv.
+                </span>
+              </div>
+            </div>
+
+            {/* 3-Column Asset Class Drilldown Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Column 1: StonkBrokers NFTs Drilldown */}
+              <div className="bg-[#0d1017] border border-[#1f2735] rounded-xl p-4 flex flex-col justify-between space-y-3">
+                <div>
+                  <div className="flex items-center justify-between border-b border-[#1c2330] pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-[#cfff04]/15 text-[#cfff04]">
+                        <Briefcase className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-white uppercase tracking-wider">
+                          1. StonkBrokers NFTs
+                        </div>
+                        <div className="text-[11px] text-gray-400">
+                          {result.brokersCount} Held • {result.activatedBrokersCount} Activated
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-base font-extrabold text-white mono">
+                        $
+                        {(result.totalBrokersValueUsd || 0).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </div>
+                      <div className="text-[10px] text-gray-400 mono">
+                        {result.totalPortfolioValueUsd
+                          ? (
+                              ((result.totalBrokersValueUsd || 0) /
+                                result.totalPortfolioValueUsd) *
+                              100
+                            ).toFixed(1)
+                          : '0.0'}
+                        % of portfolio
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pricing Methodology */}
+                  <div className="mt-2.5 bg-[#131822] border border-[#1e2636] rounded-lg p-2.5 text-[11px] text-gray-300 space-y-1 font-mono">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Anvil AMM Backing:</span>
+                      <span className="text-white font-semibold">
+                        666,666 $STONKBROKER (${(result.brokerUnitPriceUsd || 0).toFixed(2)})
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">AMM Replacement Buy:</span>
+                      <span className="text-[#38bdf8]">
+                        ${(result.brokerReplacementPriceUsd || 0).toFixed(2)} (incl. 0.133 ETH fee)
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Individual Brokers List */}
+                  <div className="mt-3 space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    {result.brokers.length === 0 ? (
+                      <div className="text-xs text-gray-500 italic py-3 text-center">
+                        No StonkBroker NFTs held in this wallet
+                      </div>
+                    ) : (
+                      result.brokers.map((b) => (
+                        <div
+                          key={b.tokenId}
+                          className="bg-[#141923] border border-[#222b3a] rounded-lg px-3 py-2 flex items-center justify-between text-xs font-mono"
+                        >
+                          <div>
+                            <span className="font-bold text-white">
+                              Broker #{b.tokenId}
+                            </span>
+                            <span
+                              className={`ml-2 px-1.5 py-0.2 rounded text-[10px] ${
+                                b.isActivated
+                                  ? 'bg-[#10b981]/15 text-[#10b981]'
+                                  : 'bg-gray-700/40 text-gray-400'
+                              }`}
+                            >
+                              {b.isActivated ? `${b.tierName} (${b.multiplier})` : 'Inactive'}
+                            </span>
+                            <span className="block text-[10px] text-gray-400 mt-0.5">
+                              666,666 $STONKBROKER backing
+                              {b.isActivated && b.activationFeeStonk
+                                ? ` + ${b.activationFeeStonk.toLocaleString()} tier`
+                                : ''}
+                            </span>
+                          </div>
+                          <div className="text-right font-bold text-[#cfff04]">
+                            ${(b.estimatedNftValueUsd || result.brokerUnitPriceUsd || 0).toFixed(2)}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-[#1c2330] flex justify-between text-xs font-mono">
+                  <span className="text-gray-400">Subtotal Brokers ({result.brokersCount}):</span>
+                  <span className="font-bold text-white">
+                    $
+                    {(result.totalBrokersValueUsd || 0).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Column 2: Stonk Interns NFTs Drilldown */}
+              <div className="bg-[#0d1017] border border-[#1f2735] rounded-xl p-4 flex flex-col justify-between space-y-3">
+                <div>
+                  <div className="flex items-center justify-between border-b border-[#1c2330] pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-[#a855f7]/15 text-[#c084fc]">
+                        <Users className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-white uppercase tracking-wider">
+                          2. Stonk Interns NFTs
+                        </div>
+                        <div className="text-[11px] text-gray-400">
+                          {result.internsCount} Held • {result.activatedInternsCount} Activated
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-base font-extrabold text-white mono">
+                        $
+                        {(result.totalInternsValueUsd || 0).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </div>
+                      <div className="text-[10px] text-gray-400 mono">
+                        {result.totalPortfolioValueUsd
+                          ? (
+                              ((result.totalInternsValueUsd || 0) /
+                                result.totalPortfolioValueUsd) *
+                              100
+                            ).toFixed(1)
+                          : '0.0'}
+                        % of portfolio
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pricing Methodology */}
+                  <div className="mt-2.5 bg-[#131822] border border-[#1e2636] rounded-lg p-2.5 text-[11px] text-gray-300 space-y-1 font-mono">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Freshman (1.00x) Value:</span>
+                      <span className="text-white font-semibold">
+                        $20 + 4,332 $SB = ${(20 + 4332 * result.stonkPriceUsd).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Senior (2.00x) Value:</span>
+                      <span className="text-[#cfff04] font-semibold">
+                        $20 + 34,332 $SB = ${(20 + 34332 * result.stonkPriceUsd).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Individual Interns List */}
+                  <div className="mt-3 space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    {result.interns.length === 0 ? (
+                      <div className="text-xs text-gray-500 italic py-3 text-center">
+                        No Stonk Intern NFTs held in this wallet
+                      </div>
+                    ) : (
+                      result.interns.map((inr) => (
+                        <div
+                          key={inr.tokenId}
+                          className="bg-[#141923] border border-[#222b3a] rounded-lg px-3 py-2 flex items-center justify-between text-xs font-mono"
+                        >
+                          <div>
+                            <span className="font-bold text-white">
+                              Intern #{inr.tokenId}
+                            </span>
+                            <span
+                              className={`ml-2 px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                                inr.tierName === 'Senior'
+                                  ? 'bg-[#cfff04]/20 text-[#cfff04]'
+                                  : 'bg-[#252f40] text-gray-300'
+                              }`}
+                            >
+                              {inr.tierName} ({inr.activationMultiplier})
+                            </span>
+                            <span className="block text-[10px] text-gray-400 mt-0.5">
+                              $20 mint +{' '}
+                              {(
+                                (inr.baseMintStonk || 999) +
+                                (inr.activationFeeStonk || 3333)
+                              ).toLocaleString()}{' '}
+                              $STONKBROKER
+                            </span>
+                          </div>
+                          <div className="text-right font-bold text-[#c084fc]">
+                            ${(inr.estimatedNftValueUsd || 35.47).toFixed(2)}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-[#1c2330] flex justify-between text-xs font-mono">
+                  <span className="text-gray-400">Subtotal Interns ({result.internsCount}):</span>
+                  <span className="font-bold text-white">
+                    $
+                    {(result.totalInternsValueUsd || 0).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Column 3: $STONKBROKER Token & TBA Vault Holdings Drilldown */}
+              <div className="bg-[#0d1017] border border-[#1f2735] rounded-xl p-4 flex flex-col justify-between space-y-3">
+                <div>
+                  <div className="flex items-center justify-between border-b border-[#1c2330] pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-[#10b981]/15 text-[#10b981]">
+                        <Coins className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-white uppercase tracking-wider">
+                          3. $STONKBROKER & Tokens
+                        </div>
+                        <div className="text-[11px] text-gray-400">
+                          Wallet + ERC-6551 TBAs + Clock In
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-base font-extrabold text-[#10b981] mono">
+                        $
+                        {(
+                          (result.walletStonkUsd || 0) +
+                          (result.walletEthUsd || 0) +
+                          result.totalTbaPortfolioUsd +
+                          result.totalPendingPayoutsUsd
+                        ).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </div>
+                      <div className="text-[10px] text-gray-400 mono">
+                        {Math.round(result.totalStonkTokensHeld || 0).toLocaleString()}{' '}
+                        $STONKBROKER
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Token Spot Price Banner */}
+                  <div className="mt-2.5 bg-[#131822] border border-[#1e2636] rounded-lg p-2.5 text-[11px] text-gray-300 space-y-1 font-mono">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Total $STONKBROKER Held:</span>
+                      <span className="text-[#cfff04] font-bold">
+                        {(result.totalStonkTokensHeld || 0).toLocaleString(undefined, {
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">$STONKBROKER Value:</span>
+                      <span className="text-white font-semibold">
+                        $
+                        {(result.totalStonkTokensUsd || 0).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Individual Token Buckets */}
+                  <div className="mt-3 space-y-1.5 font-mono text-xs">
+                    <div className="bg-[#141923] border border-[#222b3a] rounded-lg px-3 py-2 flex items-center justify-between">
+                      <div>
+                        <span className="font-bold text-white block">
+                          Direct Wallet $STONKBROKER
+                        </span>
+                        <span className="text-[10px] text-gray-400">
+                          {(result.walletStonkBalance || 0).toLocaleString(undefined, {
+                            maximumFractionDigits: 2,
+                          })}{' '}
+                          $STONKBROKER
+                        </span>
+                      </div>
+                      <span className="font-bold text-[#10b981]">
+                        $
+                        {(result.walletStonkUsd || 0).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+
+                    <div className="bg-[#141923] border border-[#222b3a] rounded-lg px-3 py-2 flex items-center justify-between">
+                      <div>
+                        <span className="font-bold text-white block">
+                          TBA Vaults $STONKBROKER
+                        </span>
+                        <span className="text-[10px] text-gray-400">
+                          {(result.tbaStonkBalance || 0).toLocaleString(undefined, {
+                            maximumFractionDigits: 2,
+                          })}{' '}
+                          $STONKBROKER inside NFTs
+                        </span>
+                      </div>
+                      <span className="font-bold text-[#10b981]">
+                        ${(result.tbaStonkUsd || 0).toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="bg-[#141923] border border-[#222b3a] rounded-lg px-3 py-2 flex items-center justify-between">
+                      <div>
+                        <span className="font-bold text-white block">
+                          Unclaimed Clock In $STONKBROKER
+                        </span>
+                        <span className="text-[10px] text-gray-400">
+                          {result.totalPendingStonk.toLocaleString(undefined, {
+                            maximumFractionDigits: 2,
+                          })}{' '}
+                          $STONKBROKER pending
+                        </span>
+                      </div>
+                      <span className="font-bold text-[#cfff04]">
+                        ${result.totalPendingPayoutsUsd.toFixed(2)}
+                      </span>
+                    </div>
+
+                    {((result.tbaOtherAssetsUsd || 0) > 0.01 ||
+                      (result.walletEthUsd || 0) > 0.01) && (
+                      <div className="bg-[#141923] border border-[#222b3a] rounded-lg px-3 py-2 flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-white block">
+                            Wallet ETH & TBA Stock Tokens
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            {(result.walletEthBalance || 0).toFixed(4)} ETH + Stock Tokens
+                          </span>
+                        </div>
+                        <span className="font-bold text-[#38bdf8]">
+                          $
+                          {(
+                            (result.walletEthUsd || 0) +
+                            (result.tbaOtherAssetsUsd || 0)
+                          ).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-[#1c2330] flex justify-between text-xs font-mono">
+                  <span className="text-gray-400">Subtotal Tokens & Vaults:</span>
+                  <span className="font-bold text-[#10b981]">
+                    $
+                    {(
+                      (result.walletStonkUsd || 0) +
+                      (result.walletEthUsd || 0) +
+                      result.totalTbaPortfolioUsd +
+                      result.totalPendingPayoutsUsd
+                    ).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -479,13 +919,13 @@ export const WalletInspector: React.FC<WalletInspectorProps> = ({
                     </span>
                   </div>
                   <div className="text-xs text-gray-400 mt-0.5">
-                    Live contract pending rewards: 25.42 $STONKBROKER per Freshman (1.00x), 50.83 $STONKBROKER per Senior (2.00x) + active parent slices.
+                    Live contract pending rewards across {result.activatedInternsCount} active Interns + active parent broker slices.
                   </div>
                 </div>
               </div>
 
               <a
-                href="https://www.stonkbrokers.cash/clock-in"
+                href="https://stonkbrokers.io/interns"
                 target="_blank"
                 rel="noreferrer"
                 className="px-5 py-2.5 rounded-xl bg-[#cfff04] hover:bg-[#bceb00] text-black font-black text-xs uppercase tracking-wider transition flex items-center gap-2 shadow-[0_0_15px_rgba(207,255,4,0.4)] whitespace-nowrap self-stretch md:self-auto justify-center"

@@ -158,6 +158,12 @@ export interface BrokerNFTItem {
   tbaTotalUsd: number;
   internsInside: number;
   internsMinted: number;
+  baseBackingStonk?: number;
+  baseBackingUsd?: number;
+  activationFeeStonk?: number;
+  activationFeeUsd?: number;
+  ammBuyEthFee?: number;
+  estimatedNftValueUsd?: number;
 }
 
 export interface PendingCreditItem {
@@ -187,6 +193,11 @@ export interface InternNFTItem {
   pendingCredits: PendingCreditItem[];
   dependentCredits: PendingCreditItem[];
   pendingTotalUsd: number;
+  baseMintEthUsd?: number;
+  baseMintStonk?: number;
+  activationFeeStonk?: number;
+  activationFeeUsd?: number;
+  estimatedNftValueUsd?: number;
 }
 
 export interface ProjectionRateSnapshot {
@@ -275,10 +286,89 @@ export interface WalletInspectionResult {
   totalPendingPayoutsUsd: number;
   totalPendingStonk: number;
   stonkPriceUsd: number;
+  ethPriceUsd?: number;
+  walletStonkBalance?: number;
+  walletStonkUsd?: number;
+  walletEthBalance?: number;
+  walletEthUsd?: number;
+  tbaStonkBalance?: number;
+  tbaStonkUsd?: number;
+  tbaOtherAssetsUsd?: number;
+  brokerUnitBackingStonk?: number;
+  brokerUnitPriceUsd?: number;
+  brokerReplacementPriceUsd?: number;
+  totalBrokersValueUsd?: number;
+  internBaseFloorUsd?: number;
+  totalInternsValueUsd?: number;
+  totalStonkTokensHeld?: number;
+  totalStonkTokensUsd?: number;
+  totalPortfolioValueUsd?: number;
   projections: RevenueProjections;
   history30d?: WalletAccrualDay[];
   cachedAt: string;
   fromCache: boolean;
+}
+
+export interface StonkTokenCandle {
+  timestamp: number;
+  dateStr: string;
+  displayTime: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volumeUsd: number;
+  marketCapUsd: number;
+}
+
+export interface StonkTokenStats {
+  symbol: string;
+  name: string;
+  contractAddress: string;
+  poolAddress: string;
+  priceUsd: number;
+  priceEth: number;
+  ethPriceUsd: number;
+  priceChange1h: number;
+  priceChange6h: number;
+  priceChange24h: number;
+  priceChange7d: number;
+  priceChange15d: number;
+  priceChange30d: number;
+  priceChangeLifetime: number;
+  volume24hUsd: number;
+  liquidityUsd: number;
+  poolStonkReserves: number;
+  poolEthReserves: number;
+  txns24hBuys: number;
+  txns24hSells: number;
+  holdersCount: number;
+  initialMaxSupply: number;
+  currentTotalSupply: number;
+  contractBurnedTokens: number;
+  deadAddressBurnedTokens: number;
+  totalBurnedTokens: number;
+  burnedPctOfInitial: number;
+  brokersBurnedEquivalent: number;
+  ammEscrowLockedTokens: number;
+  ammInventoryBrokers: number;
+  protocolEnginesLockedTokens: number;
+  dexLiquidityLockedTokens: number;
+  totalLockedTokens: number;
+  totalLockedWithDexTokens: number;
+  lockedPctOfInitial: number;
+  burnedPlusLockedTokens: number;
+  burnedPlusLockedPct: number;
+  circulatingTokens: number;
+  circulatingPctOfInitial: number;
+  freeFloatExclDexTokens: number;
+  marketCapCirculatingUsd: number;
+  fdvTotalSupplyUsd: number;
+  tokensPerBrokerNft: number;
+  brokerBackingUsd: number;
+  candlesHourly: StonkTokenCandle[];
+  candlesDaily: StonkTokenCandle[];
+  updatedAt: string;
 }
 
 export interface SupabaseConfig {
