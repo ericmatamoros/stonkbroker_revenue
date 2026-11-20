@@ -613,7 +613,9 @@ export const StonkTokenView: React.FC<StonkTokenViewProps> = ({
                   yAxisId="left"
                   stroke="#cfff04"
                   fontSize={11}
-                  domain={['auto', 'auto']}
+                  domain={[0, 0.02]}
+                  ticks={[0, 0.005, 0.01, 0.015, 0.02]}
+                  allowDataOverflow={true}
                   tickFormatter={(v) => `$${Number(v).toFixed(4)}`}
                 />
                 <YAxis
@@ -703,7 +705,13 @@ export const StonkTokenView: React.FC<StonkTokenViewProps> = ({
                 <YAxis
                   stroke="#94a3b8"
                   fontSize={11}
-                  domain={['auto', 'auto']}
+                  domain={chartMode === 'mcap' ? ['auto', 'auto'] : [0, 0.02]}
+                  ticks={
+                    chartMode === 'mcap'
+                      ? undefined
+                      : [0, 0.005, 0.01, 0.015, 0.02]
+                  }
+                  allowDataOverflow={chartMode !== 'mcap'}
                   tickFormatter={(v) =>
                     chartMode === 'mcap'
                       ? `$${(Number(v) / 1e6).toFixed(2)}M`
